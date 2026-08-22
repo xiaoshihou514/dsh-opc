@@ -1,0 +1,57 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  verify-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm assets:dummy
+      - run: pnpm assets:pack
+      - uses: actions/upload-artifact@v4
+        with: { name: dsh-opc-assets, path: dsh-opc-assets.tar.gz }
+      - name: Create GitHub release and upload assets
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh release create "${GITHUB_REF_NAME}" dsh-opc-assets.tar.gz --title "${GITHUB_REF_NAME}" --generate-notes
+
+  desktop:
+    needs: verify-and-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: appimage
+          - os: windows-latest
+            target: nsis
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm, cache-dependency-path: desktop/pnpm-lock.yaml }
+      - run: pnpm install --dir desktop --frozen-lockfile
+      - run: pnpm --dir desktop check
+      - run: pnpm --dir desktop build -- --bundles ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with: { name: dsh-opc-pet-${{ matrix.os }}, path: desktop/src-tauri/target/release/bundle/** }
+      - name: Upload desktop packages to the tagged release
+        shell: bash
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: gh release upload "${GITHUB_REF_NAME}" desktop/src-tauri/target/release/bundle/*/* --clobber

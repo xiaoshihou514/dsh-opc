@@ -1,0 +1,10 @@
+node_modules/
+lib/
+dist/
+desktop/node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+assets/characters/**/*.webm
+assets/characters/**/*.png
+!assets/characters/.gitkeep
+dsh-opc-assets.tar.gz

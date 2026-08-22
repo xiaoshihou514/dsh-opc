@@ -1,0 +1,9 @@
+{
+  "name": "dsh-opc-pet",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": { "dev": "tauri dev", "build": "tauri build", "check": "tsc --noEmit" },
+  "dependencies": { "@tauri-apps/api": "^2" },
+  "devDependencies": { "@tauri-apps/cli": "^2", "typescript": "^6.0.3" }
+}

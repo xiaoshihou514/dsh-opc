@@ -88,7 +88,7 @@ export const OFFICE_SHADERS: Record<OfficeTime, OfficeShader> = {
     } as CSSProperties,
   },
   night: {
-    label: '夜景', background: '/dsh-opc/v1/assets/office-background.png', seats: SEATS.night,
+    label: '夜景', background: '/dsh-opc/v1/assets/office-night.png', seats: SEATS.night,
     style: {
       '--opc-atmosphere': 'radial-gradient(ellipse at 50% 58%,#ffb64b20 0%,transparent 34%),linear-gradient(145deg,#2b74bb20 0%,transparent 45%,#07172f2b 100%)',
       '--opc-opacity': '.9', '--opc-blend': 'soft-light',

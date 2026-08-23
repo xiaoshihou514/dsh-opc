@@ -71,5 +71,12 @@ export function characterForModel(
   model: string,
   manifest: CharacterManifest,
 ): string {
-  return manifest.modelCharacters[model] ?? manifest.fallbackCharacter;
+  const exact = manifest.modelCharacters[model];
+  if (exact !== undefined) return exact;
+  const normalized = model.toLocaleLowerCase();
+  return (
+    Object.entries(manifest.modelCharacters).find(
+      ([candidate]) => candidate.toLocaleLowerCase() === normalized,
+    )?.[1] ?? manifest.fallbackCharacter
+  );
 }

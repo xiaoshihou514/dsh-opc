@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { MarkdownText } from "@deepseek-ai/dsh-client-ui-primitives";
+import { characterForModel } from "../protocol.ts";
 import type {
   CharacterManifest,
   SessionState,
@@ -32,13 +33,14 @@ const CHAT_CSS = `.opc-commsMain{display:grid;grid-template-columns:minmax(0,1fr
 const FULLSCREEN_CSS = `.opc-office{position:fixed;inset:0;min-height:0;overflow:hidden;background:#090c13}.opc-stage{position:absolute;inset:0;display:block;max-width:none;min-height:0;padding:0}.opc-floor{position:absolute;top:50%;left:50%;width:min(100vw,177.777vh);height:min(100vh,56.25vw);max-height:none;aspect-ratio:16/9;transform:translate(-50%,-50%);border:0;box-shadow:none}.opc-worker,.opc-emptySeat{z-index:3}.opc-worker[data-row="1"],.opc-emptySeat[data-row="1"]{z-index:3}.opc-worker[data-row="2"],.opc-emptySeat[data-row="2"]{z-index:4}.opc-exit{position:fixed;z-index:60;top:18px;left:18px;border-color:#e0b25c;background:#171b27e8;backdrop-filter:blur(7px)}.opc-comms{position:fixed;z-index:50;inset:0;grid-template-rows:72px minmax(0,1fr) auto;border:0;box-shadow:none}.opc-commsMain{grid-template-columns:minmax(0,1fr) minmax(260px,31vw) 210px}.opc-commsHeader{padding-left:82px}.opc-chatTools{display:flex;align-items:center;gap:12px}.opc-collapseToggle{display:flex;align-items:center;gap:8px;color:#d6d3ce;font-size:12px;cursor:pointer}.opc-collapseToggle input{width:17px;height:17px;accent-color:#d5a84e}.opc-conversationNode{display:contents}.opc-callNav{display:flex;flex-direction:column;min-width:0;padding:16px 10px;border-left:2px solid #383846;background:#0c0f16;overflow:hidden}.opc-callNavTitle{margin:0 4px 10px;color:#d4ad5d;font:700 10px/1.3 ui-monospace,SFMono-Regular,monospace;letter-spacing:.14em}.opc-callNavList{display:flex;flex:1;flex-direction:column;gap:2px;min-height:0;overflow:auto;scrollbar-width:none}.opc-callNavList::-webkit-scrollbar{display:none}.opc-callPoint{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 14px;gap:8px;align-items:center;width:100%;min-height:27px;padding:3px 4px;border:0;background:transparent;color:#8f929b;text-align:left;cursor:pointer;font:11px/1.25 "Microsoft YaHei",sans-serif}.opc-callPoint:hover,.opc-callPoint:focus-visible{color:#e8e1d5;outline:none}.opc-callPoint span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.opc-callPoint i{display:block;width:8px;height:3px;margin-left:auto;border-radius:2px;background:#484b53}.opc-callPoint[data-kind="user"]{color:#d8d9dd}.opc-callPoint[data-kind="tool-result"] i{background:#8b6e3e}.opc-callPoint[data-error=true] i{background:#d75d62}.opc-callPoint[data-active=true]{color:#71a8ff}.opc-callPoint[data-active=true] i{width:14px;background:#65a0ff}.opc-assets{position:fixed;z-index:70;right:18px;bottom:18px;width:min(520px,calc(100vw - 36px))}@media(max-width:1050px){.opc-commsMain{grid-template-columns:minmax(0,1fr) minmax(240px,34vw) 46px}.opc-callNav{padding:14px 7px}.opc-callNavTitle,.opc-callPoint span{display:none}.opc-callPoint{display:block;padding:5px}.opc-callPoint i{margin:auto}.opc-commsHeader{padding-left:76px}}@media(max-width:760px){.opc-chatActor{display:none}.opc-commsMain{grid-template-columns:minmax(0,1fr) 42px}.opc-callNav{grid-column:2}.opc-commsHeader{padding:10px 10px 10px 72px}.opc-chatTools{gap:6px}.opc-collapseToggle span{display:none}.opc-chatClose{padding:6px 8px}}`;
 
 const CONVERSATION_NODE_CSS = `.opc-commsHeader{padding-left:140px}.opc-conversationNode{display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:100%;scroll-margin:18px 0}.opc-conversationNode:has(.opc-message[data-role="user"]){align-items:flex-end}@media(max-width:760px){.opc-commsHeader{padding-left:72px}}`;
+const UI_POLISH_CSS = `.opc-comms{grid-template-rows:64px minmax(0,1fr) auto;background:#0d111a}.opc-commsHeader{padding-top:8px;padding-bottom:8px;border-bottom:1px solid #604d48;background:linear-gradient(90deg,#372b3b,#222b40)}.opc-commsHeader p{font-size:9px}.opc-commsHeader h2{margin-top:2px;font-size:18px;line-height:1.2}.opc-commsMain{grid-template-columns:minmax(0,1fr) clamp(250px,22vw,360px) clamp(150px,12vw,210px)}.opc-dialogue{gap:10px;padding:22px max(28px,6vw);background:#0d131e}.opc-conversationNode{gap:6px}.opc-conversationNode:empty{display:none}.opc-message{width:min(820px,100%);font-size:14px}.opc-message[data-role="user"]{max-width:min(680px,88%);padding:9px 13px;background:#192433}.opc-disclosure{width:min(820px,100%)}.opc-disclosure summary{padding:7px 2px}.opc-chatActor{border-left:1px solid #4f4547;background-image:linear-gradient(#111827b8,#111827b8),var(--opc-office-background);background-position:center;background-size:cover}.opc-chatActorVideo{bottom:46px;width:min(100%,calc(100vh - 190px),480px);height:auto;aspect-ratio:1;object-fit:contain}.opc-chatActorHud{right:10px;bottom:10px;left:10px;padding:7px 9px;box-shadow:none}.opc-callNav{padding:12px 8px;border-left:1px solid #303640;background:#090d14}.opc-callNavTitle{margin-bottom:6px}.opc-callPoint{min-height:30px}.opc-order{padding:10px max(24px,8vw) 11px;border-top:1px solid #5d4b47;background:#151722}.opc-order textarea{height:50px;padding:12px 14px;border:1px solid #7b685b}.opc-orderRow{margin-top:5px}.opc-send{padding:7px 16px}.opc-chatClose{padding:6px 10px;box-shadow:none}.opc-collapseToggle{padding:5px 8px;border:1px solid #4b5360;background:#171d28}.opc-exit{top:12px;left:14px;padding:7px 11px;box-shadow:none}@media(max-width:1050px){.opc-commsMain{grid-template-columns:minmax(0,1fr) 280px 44px}.opc-chatActorVideo{width:min(100%,calc(100vh - 190px))}}@media(max-width:760px){.opc-comms{grid-template-rows:58px minmax(0,1fr) auto}.opc-dialogue{padding:16px}.opc-order{padding:8px 12px}.opc-order textarea{height:46px}}`;
 
 function ensureStyle(): void {
   if (document.querySelector("#dsh-opc-style") !== null) return;
   const style = document.createElement("style");
   style.id = "dsh-opc-style";
   style.textContent =
-    OFFICE_CSS + GAME_CSS + SHADER_CSS + ANCHOR_CSS + CHAT_CSS + FULLSCREEN_CSS + CONVERSATION_NODE_CSS;
+    OFFICE_CSS + GAME_CSS + SHADER_CSS + ANCHOR_CSS + CHAT_CSS + FULLSCREEN_CSS + CONVERSATION_NODE_CSS + UI_POLISH_CSS;
   document.head.append(style);
 }
 
@@ -56,10 +58,7 @@ export function animationUrl(
   manifest: CharacterManifest | undefined,
   revision?: string,
 ): string {
-  const resolvedCharacter =
-    manifest?.characters?.[character] === undefined
-      ? (manifest?.fallbackCharacter ?? character)
-      : character;
+  const resolvedCharacter = characterName(character, manifest);
   const exactFiles =
     manifest?.characters?.[resolvedCharacter]?.states[state] ??
     manifest?.characters?.[manifest?.fallbackCharacter ?? ""]?.states[state] ??
@@ -71,6 +70,25 @@ export function animationUrl(
   return revision === undefined
     ? url
     : `${url}?revision=${encodeURIComponent(revision)}`;
+}
+
+function characterName(
+  character: string,
+  manifest: CharacterManifest | undefined,
+): string {
+  return manifest?.characters?.[character] === undefined
+    ? (manifest?.fallbackCharacter ?? character)
+    : character;
+}
+
+function sessionCharacter(
+  session: SessionView,
+  manifest: CharacterManifest | undefined,
+): string {
+  if (manifest === undefined) return session.character;
+  return manifest.characters?.[session.character] === undefined
+    ? characterForModel(session.model, manifest)
+    : session.character;
 }
 
 function Worker({
@@ -88,14 +106,15 @@ function Worker({
   seatStyle: CSSProperties;
   onSelect(): void;
 }) {
+  const character = sessionCharacter(session, manifest);
   const [failed, setFailed] = useState(false);
   const [source, setSource] = useState(() =>
-    animationUrl(session.character, session.state, manifest),
+    animationUrl(character, session.state, manifest),
   );
   useEffect(() => {
     setFailed(false);
-    setSource(animationUrl(session.character, session.state, manifest));
-  }, [session.id, session.state, session.stateSince, manifest]);
+    setSource(animationUrl(character, session.state, manifest));
+  }, [session.id, session.state, session.stateSince, character, manifest]);
   const attention =
     session.state === "await" || session.state === "error";
   return (
@@ -128,7 +147,7 @@ function Worker({
           onError={() => setFailed(true)}
         />
       )}
-      <strong>{session.character}</strong>
+      <strong>{character}</strong>
       <span className="opc-state">{LABELS[session.state]}</span>
       {session.activeTool !== undefined ? (
         <small>{session.activeTool}</small>
@@ -220,12 +239,15 @@ const MARKDOWN_LABELS = { copyLabel: "复制", copiedLabel: "已复制" };
 
 function ConversationEntry({
   node,
-  collapseSuccessfulTools,
+  hideSuccessfulTools,
+  successfulToolCallIds,
 }: {
   node: ConversationNode;
-  collapseSuccessfulTools: boolean;
+  hideSuccessfulTools: boolean;
+  successfulToolCallIds: ReadonlySet<string>;
 }): JSX.Element | null {
   if (node.kind === "tool-result") {
+    if (hideSuccessfulTools && !node.isError) return null;
     const output = node.content
       .filter((block) => block.type === "text")
       .map((block) => block.text)
@@ -239,7 +261,7 @@ function ConversationEntry({
       <details
         className="opc-disclosure"
         data-error={node.isError || undefined}
-        open={node.isError || !collapseSuccessfulTools || undefined}
+        open={node.isError || undefined}
       >
         <summary>
           {node.call?.name ?? "工具"} · {node.isError ? "执行失败" : "查看结果"}
@@ -277,12 +299,16 @@ function ConversationEntry({
                 </div>
               </details>
             );
-          if (block.kind === "tool-call")
+          if (block.kind === "tool-call") {
+            if (
+              hideSuccessfulTools &&
+              successfulToolCallIds.has(block.callId)
+            )
+              return null;
             return (
               <details
                 className="opc-disclosure"
                 key={index}
-                open={!collapseSuccessfulTools || undefined}
               >
                 <summary>{block.name || "工具"} · 调用详情</summary>
                 <pre className="opc-disclosureBody">
@@ -290,6 +316,7 @@ function ConversationEntry({
                 </pre>
               </details>
             );
+          }
           if (block.kind === "other")
             return (
               <details className="opc-disclosure" key={index}>
@@ -359,21 +386,19 @@ function ConversationNav({
   activeSeq: number | undefined;
   onJump(seq: number): void;
 }): JSX.Element {
+  const userNodes = nodes.filter(
+    (node) => node.kind === "user" || node.kind === "steering",
+  );
   return (
     <nav className="opc-callNav" aria-label="对话节点导航">
       <p className="opc-callNavTitle">对话雷达</p>
       <div className="opc-callNavList">
-        {nodes.map((node) => (
+        {userNodes.map((node) => (
           <button
             key={node.seq}
             type="button"
             className="opc-callPoint"
             data-kind={node.kind}
-            data-error={
-              (node.kind === "tool-result" && node.isError) ||
-              node.kind === "turn-error" ||
-              undefined
-            }
             data-active={activeSeq === node.seq || undefined}
             title={conversationPointLabel(node)}
             onClick={() => onJump(node.seq)}
@@ -407,7 +432,7 @@ export function OfficePanel({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<string>();
   const [history, setHistory] = useState<readonly ConversationNode[]>([]);
-  const [collapseSuccessfulTools, setCollapseSuccessfulTools] = useState(true);
+  const [hideSuccessfulTools, setHideSuccessfulTools] = useState(true);
   const [activeConversationSeq, setActiveConversationSeq] = useState<number>();
   const [officeTime, setOfficeTime] = useState<OfficeTime>(() =>
     officeTimeAt(),
@@ -435,15 +460,34 @@ export function OfficePanel({
   const sessions = snapshot?.sessions ?? [];
   const visibleSessions = sessions.slice(0, 6);
   const selected = sessions.find((session) => session.id === selectedId);
+  const selectedCharacter =
+    selected === undefined
+      ? undefined
+      : sessionCharacter(selected, manifest);
+  const successfulToolCallIds = useMemo(
+    () =>
+      new Set(
+        history
+          .filter(
+            (
+              node,
+            ): node is Extract<ConversationNode, { kind: "tool-result" }> =>
+              node.kind === "tool-result" && !node.isError,
+          )
+          .map((node) => node.callId),
+      ),
+    [history],
+  );
   const [chatAnimationFailed, setChatAnimationFailed] = useState(false);
   const chatAnimation = useMemo(
     () =>
       selected === undefined
         ? undefined
-        : animationUrl(selected.character, selected.state, manifest),
+        : animationUrl(selectedCharacter ?? selected.character, selected.state, manifest),
     [
       selected?.id,
       selected?.character,
+      selectedCharacter,
       selected?.state,
       selected?.stateSince,
       manifest,
@@ -538,12 +582,12 @@ export function OfficePanel({
                 <label className="opc-collapseToggle">
                   <input
                     type="checkbox"
-                    checked={collapseSuccessfulTools}
+                    checked={hideSuccessfulTools}
                     onChange={(event) =>
-                      setCollapseSuccessfulTools(event.target.checked)
+                      setHideSuccessfulTools(event.target.checked)
                     }
                   />
-                  <span>折叠成功的工具调用</span>
+                  <span>隐藏成功的工具调用</span>
                 </label>
                 <button
                   type="button"
@@ -559,7 +603,7 @@ export function OfficePanel({
                 {history.length === 0 ? (
                   <div className="opc-message" data-role="assistant">
                     <small className="opc-messageLabel">
-                      {selected.character} · {LABELS[selected.state]}
+                      {selectedCharacter} · {LABELS[selected.state]}
                     </small>
                     频道已接通，等待第一条记录。
                   </div>
@@ -572,7 +616,8 @@ export function OfficePanel({
                     >
                       <ConversationEntry
                         node={node}
-                        collapseSuccessfulTools={collapseSuccessfulTools}
+                        hideSuccessfulTools={hideSuccessfulTools}
+                        successfulToolCallIds={successfulToolCallIds}
                       />
                     </section>
                   ))
@@ -580,7 +625,12 @@ export function OfficePanel({
               </div>
               <div
                 className="opc-chatActor"
-                style={OFFICE_SHADERS[officeTime].style}
+                style={
+                  {
+                    ...OFFICE_SHADERS[officeTime].style,
+                    "--opc-office-background": `url("${OFFICE_SHADERS[officeTime].background}")`,
+                  } as CSSProperties
+                }
               >
                 {chatAnimationFailed || chatAnimation === undefined ? (
                   <div
@@ -603,7 +653,7 @@ export function OfficePanel({
                   />
                 )}
                 <div className="opc-chatActorHud">
-                  <strong>{selected.character}</strong>
+                  <strong>{selectedCharacter}</strong>
                   <small>{LABELS[selected.state]}</small>
                 </div>
               </div>
@@ -637,7 +687,7 @@ export function OfficePanel({
                   }
                 }}
                 disabled={sending}
-                placeholder={`向 ${selected.character} 下达指令…`}
+                placeholder={`向 ${selectedCharacter} 下达指令…`}
               />
               <div className="opc-orderRow">
                 <span>回车发送 · Shift + 回车换行</span>

@@ -18,6 +18,16 @@ export interface OfficeShader {
   seats: readonly OfficeSeatAnchor[]
 }
 
+/** Paint front workstations first in data order while preserving scene depth. */
+export const OFFICE_SEAT_ORDER = [
+  { row: 2, anchor: 3 },
+  { row: 2, anchor: 4 },
+  { row: 2, anchor: 5 },
+  { row: 1, anchor: 0 },
+  { row: 1, anchor: 1 },
+  { row: 1, anchor: 2 },
+] as const
+
 const SEATS = {
   // Two rows of three seats. The source backgrounds are similar, but not
   // pixel-identical, so each time variant keeps independent alignment values.

@@ -12,6 +12,7 @@ import type {
 } from "@deepseek-ai/dsh-client-runtime/client";
 import { SessionStore } from "./session-store.ts";
 import {
+  OFFICE_SEAT_ORDER,
   OFFICE_SHADERS,
   officeTimeAt,
   type OfficeTime,
@@ -28,13 +29,16 @@ const GAME_CSS = `.opc-stage{position:relative;max-width:1660px;grid-template-ro
 const ANCHOR_CSS = `.opc-floor{display:block;padding:0}.opc-worker,.opc-emptySeat{position:absolute;left:var(--opc-seat-x);top:var(--opc-seat-y);width:28%;aspect-ratio:1;min-height:0;padding:0;transform:translate(-50%,-90%) scale(var(--opc-seat-scale));transform-origin:center bottom}.opc-worker{z-index:3}.opc-worker:hover,.opc-worker:focus-visible,.opc-worker[data-selected=true]{z-index:8;transform:translate(-50%,-90%) scale(var(--opc-seat-scale))}.opc-emptySeat{z-index:2}.opc-video,.opc-fallback{inset:0;width:100%;height:100%}.opc-monitor{bottom:5%;left:8%;width:84%}@media(max-width:760px){.opc-floor{padding:0}.opc-video,.opc-fallback{height:100%}}`;
 const SHADER_CSS = `.opc-floor{isolation:isolate;background-image:var(--opc-office-background)!important;background-position:center;background-size:cover;background-repeat:no-repeat}.opc-floor:after{content:'';position:absolute;z-index:10;inset:0;pointer-events:none;background:var(--opc-atmosphere);opacity:var(--opc-opacity);mix-blend-mode:var(--opc-blend);animation:opc-light-breathe 12s ease-in-out infinite alternate}.opc-video{filter:var(--opc-character-filter) drop-shadow(2px 3px 0 #071018aa)}@keyframes opc-light-breathe{from{opacity:calc(var(--opc-opacity) * .88)}to{opacity:var(--opc-opacity)}}@media(prefers-reduced-motion:reduce){.opc-floor:after{animation:none}}`;
 const CHAT_CSS = `.opc-commsMain{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,34%);min-height:0;overflow:hidden}.opc-dialogue{display:flex;flex-direction:column;gap:14px;max-height:none;padding:24px 6%;background:#101521;scrollbar-color:#765f51 #0d111b}.opc-message{width:min(880px,94%);color:#e9e5df;line-height:1.7;font-size:14px}.opc-message[data-role="user"]{align-self:flex-end;padding:11px 14px;border-left:3px solid #748ca2;background:#1c2531}.opc-message[data-role="assistant"]{align-self:flex-start}.opc-message[data-error=true]{padding:11px 14px;border:1px solid #e06e6b;background:#51252d;color:#ffd5cf}.opc-messageLabel{display:block;margin-bottom:5px;color:#d9ad58;font:700 10px/1.4 ui-monospace,SFMono-Regular,monospace;letter-spacing:.08em}.opc-disclosure{width:min(880px,94%);border-top:1px solid #3b4654;color:#cbd0d8}.opc-disclosure summary{display:flex;align-items:center;gap:8px;padding:9px 2px;cursor:pointer;color:#aeb7c3;font-size:12px;list-style:none}.opc-disclosure summary::-webkit-details-marker{display:none}.opc-disclosure summary:before{content:'›';color:#d4a94f;font-size:18px;line-height:1;transition:transform .12s}.opc-disclosure[open] summary:before{transform:rotate(90deg)}.opc-disclosureBody{margin:0 0 10px 18px;padding:10px 12px;border-left:2px solid #4a5665;background:#0c111a;color:#bec6d0;line-height:1.55;font:12px/1.55 ui-monospace,SFMono-Regular,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.opc-disclosure[data-error=true]{border-color:#7d343b}.opc-disclosure[data-error=true] summary{color:#ff8f88}.opc-chatActor{position:relative;isolation:isolate;overflow:hidden;border-left:2px solid #70544d;background:radial-gradient(circle at 50% 26%,#5c4a6b66,transparent 42%),linear-gradient(180deg,#20293a,#111622)}.opc-chatActor:after{content:'';position:absolute;z-index:3;inset:0;pointer-events:none;background:var(--opc-atmosphere);opacity:var(--opc-opacity);mix-blend-mode:var(--opc-blend)}.opc-chatActorVideo{position:absolute;z-index:2;left:50%;bottom:-3%;width:min(46vw,520px);height:92%;object-fit:contain;transform:translateX(-50%);image-rendering:pixelated;filter:var(--opc-character-filter) drop-shadow(5px 8px 0 #05081299)}.opc-chatActorHud{position:absolute;z-index:5;right:14px;bottom:14px;left:14px;padding:9px 11px;border:1px solid #8aa9b7;background:#101925e8;box-shadow:3px 3px #07090e}.opc-chatActorHud strong,.opc-chatActorHud small{display:block}.opc-chatActorHud strong{color:#ffe7b1}.opc-chatActorHud small{margin-top:2px;color:#91cbc6}.opc-order{grid-column:1/-1}.opc-commsHeader{grid-column:1/-1}@media(max-width:820px){.opc-commsMain{grid-template-columns:1fr}.opc-chatActor{display:none}.opc-dialogue{padding:18px}.opc-message,.opc-disclosure{width:100%}}`;
+const FULLSCREEN_CSS = `.opc-office{position:fixed;inset:0;min-height:0;overflow:hidden;background:#090c13}.opc-stage{position:absolute;inset:0;display:block;max-width:none;min-height:0;padding:0}.opc-floor{position:absolute;top:50%;left:50%;width:min(100vw,177.777vh);height:min(100vh,56.25vw);max-height:none;aspect-ratio:16/9;transform:translate(-50%,-50%);border:0;box-shadow:none}.opc-worker,.opc-emptySeat{z-index:3}.opc-worker[data-row="1"],.opc-emptySeat[data-row="1"]{z-index:3}.opc-worker[data-row="2"],.opc-emptySeat[data-row="2"]{z-index:4}.opc-exit{position:fixed;z-index:60;top:18px;left:18px;border-color:#e0b25c;background:#171b27e8;backdrop-filter:blur(7px)}.opc-comms{position:fixed;z-index:50;inset:0;grid-template-rows:72px minmax(0,1fr) auto;border:0;box-shadow:none}.opc-commsMain{grid-template-columns:minmax(0,1fr) minmax(260px,31vw) 210px}.opc-commsHeader{padding-left:82px}.opc-chatTools{display:flex;align-items:center;gap:12px}.opc-collapseToggle{display:flex;align-items:center;gap:8px;color:#d6d3ce;font-size:12px;cursor:pointer}.opc-collapseToggle input{width:17px;height:17px;accent-color:#d5a84e}.opc-conversationNode{display:contents}.opc-callNav{display:flex;flex-direction:column;min-width:0;padding:16px 10px;border-left:2px solid #383846;background:#0c0f16;overflow:hidden}.opc-callNavTitle{margin:0 4px 10px;color:#d4ad5d;font:700 10px/1.3 ui-monospace,SFMono-Regular,monospace;letter-spacing:.14em}.opc-callNavList{display:flex;flex:1;flex-direction:column;gap:2px;min-height:0;overflow:auto;scrollbar-width:none}.opc-callNavList::-webkit-scrollbar{display:none}.opc-callPoint{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 14px;gap:8px;align-items:center;width:100%;min-height:27px;padding:3px 4px;border:0;background:transparent;color:#8f929b;text-align:left;cursor:pointer;font:11px/1.25 "Microsoft YaHei",sans-serif}.opc-callPoint:hover,.opc-callPoint:focus-visible{color:#e8e1d5;outline:none}.opc-callPoint span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.opc-callPoint i{display:block;width:8px;height:3px;margin-left:auto;border-radius:2px;background:#484b53}.opc-callPoint[data-kind="user"]{color:#d8d9dd}.opc-callPoint[data-kind="tool-result"] i{background:#8b6e3e}.opc-callPoint[data-error=true] i{background:#d75d62}.opc-callPoint[data-active=true]{color:#71a8ff}.opc-callPoint[data-active=true] i{width:14px;background:#65a0ff}.opc-assets{position:fixed;z-index:70;right:18px;bottom:18px;width:min(520px,calc(100vw - 36px))}@media(max-width:1050px){.opc-commsMain{grid-template-columns:minmax(0,1fr) minmax(240px,34vw) 46px}.opc-callNav{padding:14px 7px}.opc-callNavTitle,.opc-callPoint span{display:none}.opc-callPoint{display:block;padding:5px}.opc-callPoint i{margin:auto}.opc-commsHeader{padding-left:76px}}@media(max-width:760px){.opc-chatActor{display:none}.opc-commsMain{grid-template-columns:minmax(0,1fr) 42px}.opc-callNav{grid-column:2}.opc-commsHeader{padding:10px 10px 10px 72px}.opc-chatTools{gap:6px}.opc-collapseToggle span{display:none}.opc-chatClose{padding:6px 8px}}`;
+
+const CONVERSATION_NODE_CSS = `.opc-commsHeader{padding-left:140px}.opc-conversationNode{display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:100%;scroll-margin:18px 0}.opc-conversationNode:has(.opc-message[data-role="user"]){align-items:flex-end}@media(max-width:760px){.opc-commsHeader{padding-left:72px}}`;
 
 function ensureStyle(): void {
   if (document.querySelector("#dsh-opc-style") !== null) return;
   const style = document.createElement("style");
   style.id = "dsh-opc-style";
   style.textContent =
-    OFFICE_CSS + GAME_CSS + SHADER_CSS + ANCHOR_CSS + CHAT_CSS;
+    OFFICE_CSS + GAME_CSS + SHADER_CSS + ANCHOR_CSS + CHAT_CSS + FULLSCREEN_CSS + CONVERSATION_NODE_CSS;
   document.head.append(style);
 }
 
@@ -52,14 +56,18 @@ export function animationUrl(
   manifest: CharacterManifest | undefined,
   revision?: string,
 ): string {
+  const resolvedCharacter =
+    manifest?.characters?.[character] === undefined
+      ? (manifest?.fallbackCharacter ?? character)
+      : character;
   const exactFiles =
-    manifest?.characters?.[character]?.states[state] ??
+    manifest?.characters?.[resolvedCharacter]?.states[state] ??
     manifest?.characters?.[manifest?.fallbackCharacter ?? ""]?.states[state] ??
     [];
   const selected =
     exactFiles[Math.floor(Math.random() * exactFiles.length)] ??
     `${state}-0.webm`;
-  const url = `/dsh-opc/v1/assets/characters/${encodeURIComponent(character)}/${encodeURIComponent(selected)}`;
+  const url = `/dsh-opc/v1/assets/characters/${encodeURIComponent(resolvedCharacter)}/${encodeURIComponent(selected)}`;
   return revision === undefined
     ? url
     : `${url}?revision=${encodeURIComponent(revision)}`;
@@ -69,12 +77,14 @@ function Worker({
   session,
   manifest,
   selected,
+  row,
   seatStyle,
   onSelect,
 }: {
   session: SessionView;
   manifest: CharacterManifest | undefined;
   selected: boolean;
+  row: number;
   seatStyle: CSSProperties;
   onSelect(): void;
 }) {
@@ -92,6 +102,7 @@ function Worker({
     <button
       type="button"
       className={`opc-worker opc-${session.state}`}
+      data-row={row}
       data-selected={selected || undefined}
       style={seatStyle}
       onClick={onSelect}
@@ -129,14 +140,17 @@ function Worker({
 
 function EmptySeat({
   number,
+  row,
   seatStyle,
 }: {
   number: number;
+  row: number;
   seatStyle: CSSProperties;
 }): JSX.Element {
   return (
     <div
       className="opc-emptySeat"
+      data-row={row}
       aria-label={`空闲工位 ${number}`}
       style={seatStyle}
     >
@@ -206,8 +220,10 @@ const MARKDOWN_LABELS = { copyLabel: "复制", copiedLabel: "已复制" };
 
 function ConversationEntry({
   node,
+  collapseSuccessfulTools,
 }: {
   node: ConversationNode;
+  collapseSuccessfulTools: boolean;
 }): JSX.Element | null {
   if (node.kind === "tool-result") {
     const output = node.content
@@ -223,7 +239,7 @@ function ConversationEntry({
       <details
         className="opc-disclosure"
         data-error={node.isError || undefined}
-        open={node.isError || undefined}
+        open={node.isError || !collapseSuccessfulTools || undefined}
       >
         <summary>
           {node.call?.name ?? "工具"} · {node.isError ? "执行失败" : "查看结果"}
@@ -263,7 +279,11 @@ function ConversationEntry({
             );
           if (block.kind === "tool-call")
             return (
-              <details className="opc-disclosure" key={index}>
+              <details
+                className="opc-disclosure"
+                key={index}
+                open={!collapseSuccessfulTools || undefined}
+              >
                 <summary>{block.name || "工具"} · 调用详情</summary>
                 <pre className="opc-disclosureBody">
                   {block.argsRaw || "无参数"}
@@ -307,6 +327,66 @@ function ConversationEntry({
   return null;
 }
 
+function conversationPointLabel(node: ConversationNode): string {
+  if (node.kind === "user" || node.kind === "steering") {
+    const text = node.content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text)
+      .join(" ")
+      .trim();
+    return text || (node.kind === "steering" ? "补充指令" : "用户指令");
+  }
+  if (node.kind === "assistant") {
+    const text = node.blocks.find(
+      (block): block is Extract<(typeof node.blocks)[number], { kind: "text" }> =>
+        block.kind === "text" && block.text.trim() !== "",
+    );
+    const tool = node.blocks.find((block) => block.kind === "tool-call");
+    return text?.text.trim() || (tool?.kind === "tool-call" ? `调用 ${tool.name || "工具"}` : "助手回复");
+  }
+  if (node.kind === "tool-result")
+    return `${node.call?.name ?? "工具"} · ${node.isError ? "失败" : "完成"}`;
+  if (node.kind === "turn-error") return `失败 · ${node.message}`;
+  return node.kind;
+}
+
+function ConversationNav({
+  nodes,
+  activeSeq,
+  onJump,
+}: {
+  nodes: readonly ConversationNode[];
+  activeSeq: number | undefined;
+  onJump(seq: number): void;
+}): JSX.Element {
+  return (
+    <nav className="opc-callNav" aria-label="对话节点导航">
+      <p className="opc-callNavTitle">对话雷达</p>
+      <div className="opc-callNavList">
+        {nodes.map((node) => (
+          <button
+            key={node.seq}
+            type="button"
+            className="opc-callPoint"
+            data-kind={node.kind}
+            data-error={
+              (node.kind === "tool-result" && node.isError) ||
+              node.kind === "turn-error" ||
+              undefined
+            }
+            data-active={activeSeq === node.seq || undefined}
+            title={conversationPointLabel(node)}
+            onClick={() => onJump(node.seq)}
+          >
+            <span>{conversationPointLabel(node)}</span>
+            <i aria-hidden="true" />
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 export function OfficePanel({
   onExit,
   onSendPrompt,
@@ -327,6 +407,8 @@ export function OfficePanel({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<string>();
   const [history, setHistory] = useState<readonly ConversationNode[]>([]);
+  const [collapseSuccessfulTools, setCollapseSuccessfulTools] = useState(true);
+  const [activeConversationSeq, setActiveConversationSeq] = useState<number>();
   const [officeTime, setOfficeTime] = useState<OfficeTime>(() =>
     officeTimeAt(),
   );
@@ -368,6 +450,7 @@ export function OfficePanel({
     ],
   );
   useEffect(() => setChatAnimationFailed(false), [chatAnimation]);
+  useEffect(() => setActiveConversationSeq(undefined), [selected?.id]);
   useEffect(() => {
     if (selected === undefined) {
       setHistory([]);
@@ -398,14 +481,9 @@ export function OfficePanel({
   };
   return (
     <main className="opc-office">
-      <header className="opc-topbar">
-        <div className="opc-mark">
-          <span aria-hidden="true">✦</span> 深度工坊 <b>作战室</b>
-        </div>
-        <button type="button" className="opc-exit" onClick={onExit}>
-          返回 DSH
-        </button>
-      </header>
+      <button type="button" className="opc-exit" onClick={onExit}>
+        ← 返回 DSH
+      </button>
       <div className="opc-stage">
         <AssetPrompt onInstalled={loadManifest} />
         <section
@@ -417,9 +495,9 @@ export function OfficePanel({
             } as CSSProperties
           }
         >
-          {Array.from({ length: 6 }, (_, index) => {
+          {OFFICE_SEAT_ORDER.map((seat, index) => {
             const session = visibleSessions[index];
-            const anchor = OFFICE_SHADERS[officeTime].seats[index];
+            const anchor = OFFICE_SHADERS[officeTime].seats[seat.anchor];
             if (anchor === undefined) return null;
             const seatStyle = {
               "--opc-seat-x": `${anchor.x}%`,
@@ -430,6 +508,7 @@ export function OfficePanel({
               <EmptySeat
                 key={`empty-${index}`}
                 number={index + 1}
+                row={seat.row}
                 seatStyle={seatStyle}
               />
             ) : (
@@ -438,6 +517,7 @@ export function OfficePanel({
                 session={session}
                 manifest={manifest}
                 selected={selected?.id === session.id}
+                row={seat.row}
                 seatStyle={seatStyle}
                 onSelect={() => {
                   setSelectedId(session.id);
@@ -454,13 +534,25 @@ export function OfficePanel({
                 <p>角色通讯 · 真实记录</p>
                 <h2>{selected.title}</h2>
               </div>
-              <button
-                type="button"
-                className="opc-chatClose"
-                onClick={() => setSelectedId(undefined)}
-              >
-                关闭通讯
-              </button>
+              <div className="opc-chatTools">
+                <label className="opc-collapseToggle">
+                  <input
+                    type="checkbox"
+                    checked={collapseSuccessfulTools}
+                    onChange={(event) =>
+                      setCollapseSuccessfulTools(event.target.checked)
+                    }
+                  />
+                  <span>折叠成功的工具调用</span>
+                </label>
+                <button
+                  type="button"
+                  className="opc-chatClose"
+                  onClick={() => setSelectedId(undefined)}
+                >
+                  返回办公室
+                </button>
+              </div>
             </div>
             <div className="opc-commsMain">
               <div className="opc-dialogue">
@@ -473,7 +565,16 @@ export function OfficePanel({
                   </div>
                 ) : (
                   history.map((node) => (
-                    <ConversationEntry key={node.seq} node={node} />
+                    <section
+                      className="opc-conversationNode"
+                      id={`opc-node-${String(node.seq).replace(".", "-")}`}
+                      key={node.seq}
+                    >
+                      <ConversationEntry
+                        node={node}
+                        collapseSuccessfulTools={collapseSuccessfulTools}
+                      />
+                    </section>
                   ))
                 )}
               </div>
@@ -506,6 +607,18 @@ export function OfficePanel({
                   <small>{LABELS[selected.state]}</small>
                 </div>
               </div>
+              <ConversationNav
+                nodes={history}
+                activeSeq={activeConversationSeq}
+                onJump={(seq) => {
+                  setActiveConversationSeq(seq);
+                  document
+                    .getElementById(
+                      `opc-node-${String(seq).replace(".", "-")}`,
+                    )
+                    ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }}
+              />
             </div>
             <form
               className="opc-order"

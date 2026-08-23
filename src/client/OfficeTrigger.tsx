@@ -4,9 +4,31 @@ import type {
   ObservableSnapshot,
 } from "@deepseek-ai/dsh-client-runtime/client";
 import { OfficePanel } from "./OfficePanel.tsx";
+import { OfficeTestPage } from "./OfficeTestPage.tsx";
+
+function isOfficeTestPath(): boolean {
+  return (
+    window.location.pathname === "/office-test" ||
+    window.location.pathname === "/:/office-test" ||
+    window.location.hash === "#/office-test"
+  );
+}
 
 /** A game-like mode switch that takes over the client until dismissed. */
 export function OfficeTrigger({
+  onSendPrompt,
+  onConversation,
+}: {
+  onSendPrompt(sessionId: string, text: string): Promise<void>;
+  onConversation(
+    sessionId: string,
+  ): ObservableSnapshot<{ nodes: readonly ConversationNode[] }> | undefined;
+}): JSX.Element {
+  if (isOfficeTestPath()) return <OfficeTestPage />;
+  return <OfficeLauncher onSendPrompt={onSendPrompt} onConversation={onConversation} />;
+}
+
+function OfficeLauncher({
   onSendPrompt,
   onConversation,
 }: {

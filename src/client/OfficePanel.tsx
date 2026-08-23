@@ -26,6 +26,7 @@ function ensureStyle(): void {
 }
 
 const LABELS: Record<SessionState, string> = {
+  idle: "待命中",
   thinking: "思考中",
   reading: "阅读中",
   writing: "编写中",
@@ -33,20 +34,21 @@ const LABELS: Record<SessionState, string> = {
   waiting_permission: "等待授权",
   error: "发生错误",
 };
-function animationUrl(
-  session: SessionView,
+export function animationUrl(
+  character: string,
+  state: SessionState,
   manifest: CharacterManifest | undefined,
 ): string {
   const files =
-    manifest?.characters[session.character]?.states[session.state] ??
+    manifest?.characters[character]?.states[state] ??
     manifest?.characters[manifest?.fallbackCharacter ?? ""]?.states[
-      session.state
+      state
     ] ??
     [];
   const selected =
     files[Math.floor(Math.random() * files.length)] ??
-    `${session.state}-0.webm`;
-  return `/dsh-opc/v1/assets/characters/${encodeURIComponent(session.character)}/${encodeURIComponent(selected)}`;
+    `${state}-0.webm`;
+  return `/dsh-opc/v1/assets/characters/${encodeURIComponent(character)}/${encodeURIComponent(selected)}`;
 }
 
 function Worker({
@@ -61,10 +63,10 @@ function Worker({
   onSelect(): void;
 }) {
   const [failed, setFailed] = useState(false);
-  const [source, setSource] = useState(() => animationUrl(session, manifest));
+  const [source, setSource] = useState(() => animationUrl(session.character, session.state, manifest));
   useEffect(() => {
     setFailed(false);
-    setSource(animationUrl(session, manifest));
+    setSource(animationUrl(session.character, session.state, manifest));
   }, [session.id, session.state, session.stateSince, manifest]);
   const attention =
     session.state === "waiting_permission" || session.state === "error";

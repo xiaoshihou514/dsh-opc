@@ -34,7 +34,7 @@ describe("office state machine", () => {
     expect(stateOf({ ...base, activeTool: "read" })).toBe("reading");
     expect(stateOf({ ...base, activeTool: "edit" })).toBe("writing");
     expect(stateOf(base)).toBe("thinking");
-    expect(stateOf({ ...base, running: false })).toBe("waiting_job");
+    expect(stateOf({ ...base, running: false })).toBe("idle");
   });
   it("classifies unknown tools conservatively as writing", () => {
     expect(classifyTool("grep")).toBe("reading");

@@ -39,7 +39,7 @@ export function stateOf(facts: SessionFacts): SessionState {
   if (facts.approval !== undefined) return "waiting_permission";
   if (facts.error !== undefined) return "error";
   if (facts.activeTool !== undefined) return classifyTool(facts.activeTool);
-  return facts.running ? "thinking" : "waiting_job";
+  return facts.running ? "thinking" : "idle";
 }
 
 export function project(facts: SessionFacts): SessionView {

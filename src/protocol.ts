@@ -1,6 +1,7 @@
 export const API_VERSION = 1 as const;
 
 export type SessionState =
+  | "idle"
   | "thinking"
   | "reading"
   | "writing"

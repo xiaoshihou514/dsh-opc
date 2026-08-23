@@ -13,6 +13,10 @@ install: install-dev
 dummy-assets:
   pnpm assets:dummy
 
+# Convert the raw green-screen animations into transparent WebM assets.
+process-assets:
+  pnpm assets:process
+
 # Typecheck and test the Harness plugin.
 check:
   pnpm check

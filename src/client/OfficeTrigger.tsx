@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { OfficePanel } from './OfficePanel.tsx'
 
-/** A compact sidebar action; the full office scene belongs in a modal, not the footer slot. */
-export function OfficeTrigger({ wide }: { wide: boolean }): JSX.Element {
+/** A shell-level launcher; the office scene itself stays in a modal. */
+export function OfficeTrigger(): JSX.Element {
   const [open, setOpen] = useState(false)
   useEffect(() => {
     if (!open) return
@@ -11,13 +11,13 @@ export function OfficeTrigger({ wide }: { wide: boolean }): JSX.Element {
     return () => document.removeEventListener('keydown', close)
   }, [open])
   return <>
-    <button type="button" aria-label="DSH Office" aria-expanded={open} onClick={() => setOpen(true)} style={{
-      flex: 'none', display: 'flex', alignItems: 'center', gap: 8, width: wide ? 'calc(100% + 8px)' : 36,
-      height: wide ? 34 : 36, margin: wide ? '4px -4px 4px' : '8px 0 10px', padding: wide ? '6px 2px 6px 10px' : 0,
-      boxSizing: 'border-box', border: 'none', borderRadius: wide ? 12 : '50%', background: 'transparent',
-      color: 'var(--dsw-alias-label-primary)', cursor: 'pointer', overflow: 'hidden', justifyContent: wide ? 'flex-start' : 'center', font: 'inherit', fontSize: 14,
+    <button type="button" aria-label="Open DSH Office" aria-expanded={open} onClick={() => setOpen(true)} style={{
+      position: 'fixed', top: 76, right: 20, zIndex: 30, display: 'flex', alignItems: 'center', gap: 8,
+      height: 38, padding: '0 13px 0 11px', boxSizing: 'border-box', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 19,
+      background: 'var(--dsw-alias-button-floating-fill)', boxShadow: '0 4px 16px #0003', color: 'var(--dsw-alias-label-primary)',
+      cursor: 'pointer', font: 'inherit', fontSize: 14,
     }}>
-      <span aria-hidden="true" style={{ fontSize: wide ? 18 : 20 }}>⌂</span>{wide ? <span>Office</span> : null}
+      <span aria-hidden="true" style={{ fontSize: 18 }}>⌂</span><span>Office</span>
     </button>
     {open ? <div role="dialog" aria-modal="true" aria-label="DSH Office" style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'grid', placeItems: 'center' }}>
       <div style={{ position: 'absolute', inset: 0, background: 'var(--dsw-alias-bg-mask-1)', backdropFilter: 'var(--dsw-mask-blur)' }} onClick={() => setOpen(false)} />

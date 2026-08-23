@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readdir, rm } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, rm, stat } from 'node:fs/promises'
 import { extname, join, parse } from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -31,6 +31,15 @@ function capture(command, args) {
       else reject(new Error(`${command} exited with ${code}`))
     })
   })
+}
+
+async function modifiedAt(path) {
+  try {
+    return (await stat(path)).mtimeMs
+  } catch (error) {
+    if (error?.code === 'ENOENT') return undefined
+    throw error
+  }
 }
 
 async function sourceVideos() {
@@ -128,6 +137,20 @@ async function processVideo(video) {
 
   await mkdir(processedDirectory, { recursive: true })
   await mkdir(characterDirectory, { recursive: true })
+  const [sourceModifiedAt, publishedModifiedAt, processedModifiedAt] = await Promise.all([
+    modifiedAt(video.input),
+    modifiedAt(published),
+    modifiedAt(processed),
+  ])
+  if (publishedModifiedAt !== undefined && publishedModifiedAt >= sourceModifiedAt) {
+    // The published character clip is the canonical artifact. Repair the
+    // optional processed mirror without paying the cost of another encode.
+    if (processedModifiedAt === undefined || processedModifiedAt < publishedModifiedAt) {
+      await copyFile(published, processed)
+    }
+    console.log(`Skipping ${video.character}/${video.name} (artifact is current)`)
+    return false
+  }
   await rm(temporary, { force: true })
   const background = await backgroundKey(video.input)
   console.log(`Processing ${video.character}/${video.name} (key #${background})`)
@@ -143,7 +166,9 @@ async function processVideo(video) {
   await copyFile(temporary, processed)
   await copyFile(temporary, published)
   await rm(temporary, { force: true })
+  return true
 }
 
-await Promise.all(videos.map(processVideo))
-console.log(`Processed ${videos.length} transparent WebM animation(s).`)
+const results = await Promise.all(videos.map(processVideo))
+const processedCount = results.filter(Boolean).length
+console.log(`Processed ${processedCount} transparent WebM animation(s); skipped ${videos.length - processedCount} current artifact(s).`)

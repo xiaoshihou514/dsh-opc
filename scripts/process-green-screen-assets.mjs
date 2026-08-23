@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 const sourceRoot = fileURLToPath(new URL('../assets/raw/绿幕动画/', import.meta.url))
 const processedRoot = fileURLToPath(new URL('../assets/raw/动画/', import.meta.url))
 const characterRoot = fileURLToPath(new URL('../assets/characters/', import.meta.url))
+const previewOffice = fileURLToPath(new URL('../assets/office-background.png', import.meta.url))
 const videoExtensions = new Set(['.mp4', '.mov', '.mkv', '.webm'])
 
 function run(command, args) {
@@ -90,14 +91,22 @@ function filterFor(background) {
   // keying. A narrow, minimally feathered per-video key preserves foreground
   // RGB values while making the green floor shadow transparent too.
   return [
-  // The supplied source set is 720 × 720. delogo accepts integer geometry,
-  // so keep these source-specific rectangles rather than relying on filters'
-  // inconsistent expression support across ffmpeg versions.
-  'delogo=x=7:y=7:w=137:h=65',
-  'delogo=x=547:y=648:w=166:h=65',
+    // The supplied source set is 720 × 720. delogo accepts integer geometry,
+    // so keep these source-specific rectangles rather than relying on filters'
+    // inconsistent expression support across ffmpeg versions.
+    'delogo=x=7:y=7:w=137:h=65',
+    'delogo=x=547:y=648:w=166:h=65',
     `colorkey=0x${background}:0.18:0.02`,
-  'format=yuva420p',
+    'format=yuva420p',
   ].join(',')
+}
+
+function previewFilterFor(background) {
+  return [
+    '[0:v]scale=720:720:force_original_aspect_ratio=increase,crop=720:720[office]',
+    `[1:v]${filterFor(background)}[character]`,
+    '[office][character]overlay=format=auto:shortest=1[preview]',
+  ].join(';')
 }
 
 const videos = await sourceVideos()
@@ -111,22 +120,41 @@ for (const video of videos) {
   const processed = join(processedDirectory, video.name)
   const temporary = `${processed}.tmp.webm`
   const published = join(characterDirectory, video.name)
+  const preview = join(processedDirectory, `${parse(video.name).name}.mp4`)
+  const temporaryPreview = `${preview}.tmp.mp4`
 
   await mkdir(processedDirectory, { recursive: true })
   await mkdir(characterDirectory, { recursive: true })
   await rm(temporary, { force: true })
+  await rm(temporaryPreview, { force: true })
   const background = await backgroundKey(video.input)
   console.log(`Processing ${video.character}/${video.name} (key #${background})`)
   await run('ffmpeg', [
     '-y', '-hide_banner', '-loglevel', 'error', '-i', video.input,
     '-map', '0:v:0', '-vf', filterFor(background),
-    '-an', '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p',
-    '-crf', '30', '-b:v', '0', '-deadline', 'good', '-cpu-used', '4',
-    '-row-mt', '1', '-auto-alt-ref', '0', temporary,
+    // VP8 WebM alpha is the broadly supported WebM transparency path. Keep
+    // auto-alt-ref off because the alpha stream is incompatible with it.
+    '-an', '-c:v', 'libvpx', '-pix_fmt', 'yuva420p',
+    '-crf', '18', '-b:v', '0', '-deadline', 'good', '-cpu-used', '4',
+    '-auto-alt-ref', '0', temporary,
   ])
   await copyFile(temporary, processed)
   await copyFile(temporary, published)
   await rm(temporary, { force: true })
+
+  // This standard H.264 preview is intentionally opaque and is only kept
+  // under assets/raw/动画 for inspection in Dolphin/Haruna. It gives those
+  // players a faithful, no-green proof without requiring alpha-video support.
+  await run('ffmpeg', [
+    '-y', '-hide_banner', '-loglevel', 'error',
+    '-loop', '1', '-framerate', '24', '-i', previewOffice,
+    '-i', video.input,
+    '-filter_complex', previewFilterFor(background), '-map', '[preview]',
+    '-an', '-shortest', '-c:v', 'libx264', '-preset', 'medium', '-crf', '18',
+    '-pix_fmt', 'yuv420p', '-movflags', '+faststart', temporaryPreview,
+  ])
+  await copyFile(temporaryPreview, preview)
+  await rm(temporaryPreview, { force: true })
 }
 
-console.log(`Processed ${videos.length} transparent WebM animation(s).`)
+console.log(`Processed ${videos.length} transparent WebM animation(s) and H.264 review preview(s).`)

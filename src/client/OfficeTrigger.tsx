@@ -10,7 +10,8 @@ function isOfficeTestPath(): boolean {
   return (
     window.location.pathname === "/office-test" ||
     window.location.pathname === "/:/office-test" ||
-    window.location.hash === "#/office-test"
+    window.location.hash === "#/office-test" ||
+    new URLSearchParams(window.location.search).has("office-test")
   );
 }
 

@@ -48,6 +48,9 @@ export function OfficeTestPage(): JSX.Element {
 
   useEffect(() => {
     ensureTestStyle();
+    if (new URLSearchParams(window.location.search).has("office-test")) {
+      window.history.replaceState(null, "", "/office-test");
+    }
     void fetch("/dsh-opc/v1/assets/manifest.json", { cache: "no-store" })
       .then((response) => response.json())
       .then((value: CharacterManifest) => setManifest(value))

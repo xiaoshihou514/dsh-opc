@@ -23,6 +23,25 @@ export function registerRoutes(
   webServer: WebServer,
   source: SnapshotSource,
 ): void {
+  for (const path of ["/office-test", "/:/office-test"]) {
+    ctx.effect(
+      () =>
+        webServer.register({
+          kind: "exact",
+          path,
+          handler: (req, res) => {
+            if (req.method !== "GET") {
+              res.writeHead(405).end();
+              return;
+            }
+            // The built-in SPA only serves registered shell paths. Enter it
+            // through root, then the client restores this invisible test URL.
+            res.writeHead(302, { location: "/?office-test=1" }).end();
+          },
+        }),
+      `dsh-opc: office test page route ${path}`,
+    );
+  }
   ctx.effect(
     () =>
       webServer.register({

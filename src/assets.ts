@@ -175,7 +175,15 @@ export async function serveAsset(
     res.writeHead(405).end();
     return;
   }
-  const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+  // URL.pathname is percent-encoded. Decode it before resolving the local
+  // filename so character IDs such as “打工人” serve their WebM correctly.
+  let pathname: string;
+  try {
+    pathname = decodeURIComponent(new URL(req.url ?? "/", "http://localhost").pathname);
+  } catch {
+    res.writeHead(400).end();
+    return;
+  }
   const file = safeAssetPath(root, pathname.replace("/dsh-opc/v1/assets/", ""));
   if (file === undefined) {
     res.writeHead(403).end();

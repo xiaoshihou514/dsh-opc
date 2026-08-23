@@ -12,7 +12,7 @@
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
-  "files": ["lib", "assets/manifest.json", "cordis.patch.yml", "README.md", "LICENSE"],
+  "files": ["lib", "assets/manifest.json", "assets/office-background.png", "cordis.patch.yml", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsdown",
     "check": "tsc --noEmit",

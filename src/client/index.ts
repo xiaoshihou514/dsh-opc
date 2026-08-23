@@ -24,7 +24,13 @@ export function apply(ctx: ClientContext): void {
         const result = await session.prompt([{ type: 'text', text }], 'queue')
         if (!result.ok) throw new Error(result.error.message)
       },
-      onConversation: (sessionId: string) => sessionRuntime.binding(sessionId as never)?.session,
+      onConversation: (sessionId: string) => {
+        // Opening the selected DSH session makes its durable history window
+        // live before the office subscribes to it; closing Office then lands
+        // the user on the same conversation.
+        sessionRuntime.open(sessionId as never)
+        return sessionRuntime.binding(sessionId as never)?.session
+      },
     }) }, OfficeTrigger)
   })
 }

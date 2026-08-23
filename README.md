@@ -22,6 +22,11 @@ choose one randomly when a session enters that state. `assets/manifest.json`
 maps exact model names to characters and sends unmatched models to
 `office-default`.
 
+The Office control opens a full-screen game-like operations floor. Select a
+worker to open its direct channel and queue a prompt to that exact DSH session.
+See [the animation asset guide](docs/animation-assets.md) for WebM authoring,
+packing, and the exact manifest/state matching rules.
+
 The pet accepts only loopback HTTP(S) DSH URLs. It emits one notification per
 approval/error identity and per long-running milestone (5, 10, 20, 30, 45, 60
 minutes, then hourly); the notification ledger persists in

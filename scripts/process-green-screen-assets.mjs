@@ -7,6 +7,7 @@ const sourceRoot = fileURLToPath(new URL('../assets/raw/绿幕动画/', import.m
 const processedRoot = fileURLToPath(new URL('../assets/raw/动画/', import.meta.url))
 const characterRoot = fileURLToPath(new URL('../assets/characters/', import.meta.url))
 const videoExtensions = new Set(['.mp4', '.mov', '.mkv', '.webm'])
+const outputSize = 720
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
@@ -88,14 +89,19 @@ async function backgroundKey(input) {
 function filterFor(background) {
   // Both watermarks sit entirely on the green screen. Remove them before
   // keying. A narrow, minimally feathered per-video key preserves foreground
-  // RGB values while making the green floor shadow transparent too.
+  // RGB values while making the green floor shadow transparent too. The
+  // premultiply replaces RGB behind alpha=0 with black: thumbnailers that
+  // ignore WebM alpha therefore show black, never the source green.
   return [
-    // The supplied source set is 720 × 720. delogo accepts integer geometry,
-    // so keep these source-specific rectangles rather than relying on filters'
-    // inconsistent expression support across ffmpeg versions.
+    // Keep the published character artifacts at their source resolution. This
+    // makes the output reproducible at 720 × 720 regardless of UI seat size.
+    `scale=${outputSize}:${outputSize}:flags=lanczos`,
+    // Source watermarks scaled from their stable 720 px positions.
     'delogo=x=7:y=7:w=137:h=65',
     'delogo=x=547:y=648:w=166:h=65',
     `colorkey=0x${background}:0.18:0.02`,
+    'format=rgba',
+    'premultiply=inplace=1',
     'format=yuva420p',
   ].join(',')
 }
@@ -105,7 +111,7 @@ if (videos.length === 0) {
   throw new Error(`No videos found under ${sourceRoot}`)
 }
 
-for (const video of videos) {
+async function processVideo(video) {
   const processedDirectory = join(processedRoot, video.character)
   const characterDirectory = join(characterRoot, video.character)
   const processed = join(processedDirectory, video.name)
@@ -131,4 +137,5 @@ for (const video of videos) {
   await rm(temporary, { force: true })
 }
 
+await Promise.all(videos.map(processVideo))
 console.log(`Processed ${videos.length} transparent WebM animation(s).`)

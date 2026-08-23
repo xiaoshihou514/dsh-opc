@@ -3,7 +3,9 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import type { ClientContext, ISessions } from '@deepseek-ai/dsh-client-runtime/client'
 import { OfficeTrigger } from './OfficeTrigger.tsx'
 
-export const inject = ['slots']
+// Cordis guards service access at runtime; `sessions` is required for the
+// selected character's prompt channel, not merely as a package dependency.
+export const inject = ['slots', 'sessions']
 
 export function apply(ctx: ClientContext): void {
   // The slot-runtime's store namespace also uses the word "sessions". Keep

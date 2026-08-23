@@ -39,15 +39,24 @@ export function animationUrl(
   state: SessionState,
   manifest: CharacterManifest | undefined,
 ): string {
-  const files =
+  const exactFiles =
     manifest?.characters[character]?.states[state] ??
     manifest?.characters[manifest?.fallbackCharacter ?? ""]?.states[
       state
     ] ??
     [];
+  // An idle clip is optional while artists add the new state. Existing asset
+  // packs use the semantically closest wait animation until one is supplied.
+  const files =
+    exactFiles.length > 0 || state !== "idle"
+      ? exactFiles
+      : manifest?.characters[character]?.states.waiting_job ??
+        manifest?.characters[manifest?.fallbackCharacter ?? ""]?.states
+          .waiting_job ??
+        [];
   const selected =
     files[Math.floor(Math.random() * files.length)] ??
-    `${state}-0.webm`;
+    `${state === "idle" ? "waiting_job" : state}-0.webm`;
   return `/dsh-opc/v1/assets/characters/${encodeURIComponent(character)}/${encodeURIComponent(selected)}`;
 }
 

@@ -26,10 +26,6 @@ check:
 build:
   pnpm build
 
-# Rebuild the plugin bundle whenever source files change.
-plugin-dev:
-  pnpm exec tsdown --watch
-
 # Start the Tauri pet against the local Harness web server.
 pet-dev dsh_url='http://127.0.0.1:3080':
   pnpm --dir desktop dev -- --dsh-url {{dsh_url}}

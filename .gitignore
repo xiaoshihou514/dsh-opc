@@ -8,3 +8,4 @@ assets/characters/**/*.webm
 assets/characters/**/*.png
 !assets/characters/.gitkeep
 dsh-opc-assets.tar.gz
+assets/raw

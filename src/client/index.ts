@@ -20,10 +20,11 @@ export function apply(ctx: ClientContext): void {
     yield ctx.slots.register({ name: 'shell.overlay', id: 'dsh-opc-office', order: 20, inject: () => ({
       onSendPrompt: async (sessionId: string, text: string): Promise<void> => {
         const session = sessionRuntime.binding(sessionId as never)?.session
-        if (session === undefined) throw new Error('That worker is no longer available.')
+        if (session === undefined) throw new Error('该角色会话已不可用。')
         const result = await session.prompt([{ type: 'text', text }], 'queue')
         if (!result.ok) throw new Error(result.error.message)
       },
+      onConversation: (sessionId: string) => sessionRuntime.binding(sessionId as never)?.session,
     }) }, OfficeTrigger)
   })
 }

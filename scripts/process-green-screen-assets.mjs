@@ -88,9 +88,12 @@ async function backgroundKey(input) {
 
 function filterFor(background) {
   // Both watermarks sit entirely on the green screen. Remove them before
-  // keying. A narrow, minimally feathered per-video key preserves foreground
-  // RGB values while making the green floor shadow transparent too. The
-  // premultiply replaces RGB behind alpha=0 with black: thumbnailers that
+  // keying. This deliberately has two separate passes: the first is a narrow
+  // whole-frame key that protects foreground props; the second is restricted
+  // to the floor beneath the desk and clears only strongly green shadow pixels.
+  // Keeping those jobs separate prevents grey-green laptop and table-leg
+  // highlights from being made transparent. The premultiply replaces RGB
+  // behind alpha=0 with black: thumbnailers that
   // ignore WebM alpha therefore show black, never the source green.
   return [
     // Keep the published character artifacts at their source resolution. This
@@ -99,8 +102,13 @@ function filterFor(background) {
     // Source watermarks scaled from their stable 720 px positions.
     'delogo=x=7:y=7:w=137:h=65',
     'delogo=x=547:y=648:w=166:h=65',
-    `colorkey=0x${background}:0.18:0.02`,
+    // Pass 1: conservative background-only chroma key.
+    `colorkey=0x${background}:0.11:0.01`,
     'format=rgba',
+    // Pass 2: source clips keep their floor shadow below y=510. Remove only
+    // pixels whose green channel is substantially stronger than both red and
+    // blue there; neutral table legs and the laptop remain fully opaque.
+    "geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(Y,510),alpha(X,Y),if(gt(g(X,Y),max(r(X,Y),b(X,Y))*1.35),0,alpha(X,Y)))'",
     'premultiply=inplace=1',
     'format=yuva420p',
   ].join(',')

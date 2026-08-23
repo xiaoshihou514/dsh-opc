@@ -44,7 +44,8 @@ export interface Snapshot {
 
 export interface CharacterManifest {
   apiVersion: typeof API_VERSION;
-  characters: Record<
+  /** Derived at read time from characters/<name>/<state>-<variant>.webm. */
+  characters?: Record<
     string,
     { states: Partial<Record<SessionState, readonly string[]>> }
   >;

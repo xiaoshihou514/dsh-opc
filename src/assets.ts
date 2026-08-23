@@ -13,11 +13,14 @@ import { dirname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { CharacterManifest } from "./protocol.ts";
+import type { SessionState } from "./protocol.ts";
 
 const MAX_ARCHIVE_BYTES = 250 * 1024 * 1024;
 const RELEASE_REPOSITORY =
   process.env.DSH_OPC_ASSET_REPOSITORY ?? "xiaoshihou514/dsh-opc";
 const RELEASE_ASSET = "dsh-opc-assets.tar.gz";
+const ANIMATION_FILE =
+  /^(idle|thinking|reading|writing|waiting_job|waiting_permission|error)-(\d+)\.webm$/;
 
 export function assetCacheDir(): string {
   return join(process.env.DSH_HOME?.trim() || join(homedir(), ".dsh"), "opc");
@@ -70,9 +73,42 @@ export async function readManifest(
   root = assetCacheDir(),
 ): Promise<CharacterManifest | undefined> {
   try {
-    return JSON.parse(
+    const base = JSON.parse(
       await readFile(join(root, "manifest.json"), "utf8"),
     ) as CharacterManifest;
+    const characters: NonNullable<CharacterManifest["characters"]> = {};
+    const directories = await readdir(join(root, "characters"), {
+      withFileTypes: true,
+    });
+    for (const directory of directories) {
+      if (!directory.isDirectory()) continue;
+      const variants = new Map<
+        SessionState,
+        Array<{ file: string; index: number }>
+      >();
+      for (const file of await readdir(
+        join(root, "characters", directory.name),
+      )) {
+        const match = ANIMATION_FILE.exec(file);
+        if (match === null) continue;
+        const state = match[1] as SessionState;
+        const entries = variants.get(state) ?? [];
+        entries.push({ file, index: Number(match[2]) });
+        variants.set(state, entries);
+      }
+      const states: Partial<Record<SessionState, readonly string[]>> = {};
+      for (const [state, files] of variants) {
+        states[state] = files
+          .sort(
+            (left, right) =>
+              left.index - right.index || left.file.localeCompare(right.file),
+          )
+          .map(({ file }) => file);
+      }
+      if (Object.keys(states).length > 0)
+        characters[directory.name] = { states };
+    }
+    return { ...base, characters };
   } catch {
     return undefined;
   }
@@ -170,6 +206,7 @@ export async function serveAsset(
   root: string,
   req: IncomingMessage,
   res: ServerResponse,
+  cacheControl = "public, max-age=31536000, immutable",
 ): Promise<void> {
   if (req.method !== "GET" && req.method !== "HEAD") {
     res.writeHead(405).end();
@@ -179,7 +216,9 @@ export async function serveAsset(
   // filename so character IDs such as “打工人” serve their WebM correctly.
   let pathname: string;
   try {
-    pathname = decodeURIComponent(new URL(req.url ?? "/", "http://localhost").pathname);
+    pathname = decodeURIComponent(
+      new URL(req.url ?? "/", "http://localhost").pathname,
+    );
   } catch {
     res.writeHead(400).end();
     return;
@@ -190,7 +229,13 @@ export async function serveAsset(
     return;
   }
   try {
-    const content = await readFile(file);
+    const manifest = file.endsWith("manifest.json")
+      ? await readManifest(root)
+      : undefined;
+    const content =
+      manifest === undefined
+        ? await readFile(file)
+        : Buffer.from(JSON.stringify(manifest));
     const type = file.endsWith(".webm")
       ? "video/webm"
       : file.endsWith(".json")
@@ -198,7 +243,7 @@ export async function serveAsset(
         : "image/png";
     res.writeHead(200, {
       "content-type": type,
-      "cache-control": "public, max-age=31536000, immutable",
+      "cache-control": cacheControl,
     });
     if (req.method === "GET") res.end(content);
     else res.end();

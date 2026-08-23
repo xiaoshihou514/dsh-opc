@@ -1,6 +1,10 @@
 import { defineConfig } from 'tsdown'
 
-const clientExternals = ['react', 'react/jsx-runtime']
+const clientExternals = [
+  'react',
+  'react/jsx-runtime',
+  '@deepseek-ai/dsh-client-ui-primitives',
+]
 
 export default defineConfig([
   {

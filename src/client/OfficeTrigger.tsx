@@ -26,7 +26,12 @@ export function OfficeTrigger({
   ): ObservableSnapshot<{ nodes: readonly ConversationNode[] }> | undefined;
 }): JSX.Element {
   if (isOfficeTestPath()) return <OfficeTestPage />;
-  return <OfficeLauncher onSendPrompt={onSendPrompt} onConversation={onConversation} />;
+  return (
+    <OfficeLauncher
+      onSendPrompt={onSendPrompt}
+      onConversation={onConversation}
+    />
+  );
 }
 
 function OfficeLauncher({

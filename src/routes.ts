@@ -1,7 +1,7 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type { WebServer } from "@deepseek-ai/dsh-host-webserver";
 import type { Snapshot } from "./protocol.ts";
-import { activeAssetDir, serveAsset } from "./assets.ts";
+import { activeAssetDir, assetStatus, serveAsset } from "./assets.ts";
 
 export interface SnapshotSource {
   snapshot(): Snapshot;
@@ -95,8 +95,17 @@ export function registerRoutes(
       webServer.register({
         kind: "prefix",
         path: "/dsh-opc/v1/assets",
-        handler: async (req, res) =>
-          serveAsset(await activeAssetDir(), req, res),
+        handler: async (req, res) => {
+          const status = await assetStatus();
+          await serveAsset(
+            await activeAssetDir(),
+            req,
+            res,
+            status.localDev
+              ? "no-store"
+              : "public, max-age=31536000, immutable",
+          );
+        },
       }),
     "dsh-opc: asset route",
   );

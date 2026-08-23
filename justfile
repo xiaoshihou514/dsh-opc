@@ -6,7 +6,7 @@ install-dev:
   pnpm install
   pnpm --dir desktop install
 
-install: install-dev
+install: install-dev build
   dsh plugin --profile web add "{{justfile_directory()}}"
 
 # Generate ignored placeholder WebM clips for local UI work.

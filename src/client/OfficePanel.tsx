@@ -5,9 +5,16 @@ import type {
   SessionState,
   SessionView,
 } from "../protocol.ts";
-import type { ConversationNode, ObservableSnapshot } from "@deepseek-ai/dsh-client-runtime/client";
+import type {
+  ConversationNode,
+  ObservableSnapshot,
+} from "@deepseek-ai/dsh-client-runtime/client";
 import { SessionStore } from "./session-store.ts";
-import { OFFICE_SHADERS, officeTimeAt, type OfficeTime } from "./office-shaders.ts";
+import {
+  OFFICE_SHADERS,
+  officeTimeAt,
+  type OfficeTime,
+} from "./office-shaders.ts";
 
 // A focused, full-screen "command room" rather than a dashboard: the scene is
 // the primary surface, and the selected character is the person being briefed.
@@ -41,19 +48,17 @@ export function animationUrl(
 ): string {
   const exactFiles =
     manifest?.characters[character]?.states[state] ??
-    manifest?.characters[manifest?.fallbackCharacter ?? ""]?.states[
-      state
-    ] ??
+    manifest?.characters[manifest?.fallbackCharacter ?? ""]?.states[state] ??
     [];
   // An idle clip is optional while artists add the new state. Existing asset
   // packs use the semantically closest wait animation until one is supplied.
   const files =
     exactFiles.length > 0 || state !== "idle"
       ? exactFiles
-      : manifest?.characters[character]?.states.waiting_job ??
+      : (manifest?.characters[character]?.states.waiting_job ??
         manifest?.characters[manifest?.fallbackCharacter ?? ""]?.states
           .waiting_job ??
-        [];
+        []);
   const selected =
     files[Math.floor(Math.random() * files.length)] ??
     `${state === "idle" ? "waiting_job" : state}-0.webm`;
@@ -72,7 +77,9 @@ function Worker({
   onSelect(): void;
 }) {
   const [failed, setFailed] = useState(false);
-  const [source, setSource] = useState(() => animationUrl(session.character, session.state, manifest));
+  const [source, setSource] = useState(() =>
+    animationUrl(session.character, session.state, manifest),
+  );
   useEffect(() => {
     setFailed(false);
     setSource(animationUrl(session.character, session.state, manifest));
@@ -239,7 +246,9 @@ export function OfficePanel({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<string>();
   const [history, setHistory] = useState<readonly ConversationNode[]>([]);
-  const [officeTime, setOfficeTime] = useState<OfficeTime>(() => officeTimeAt());
+  const [officeTime, setOfficeTime] = useState<OfficeTime>(() =>
+    officeTimeAt(),
+  );
   useEffect(() => {
     const stop = store.subscribe(() => setSnapshot(store.snapshot));
     store.start();
@@ -303,21 +312,16 @@ export function OfficePanel({
         </button>
       </header>
       <div className="opc-stage">
-        <div className="opc-sceneTitle">
-          <div>
-            <h1>作战工位</h1>
-            <p>点击角色，接通专属指令频道。</p>
-          </div>
-          <p>
-            {OFFICE_SHADERS[officeTime].label} ·{" "}
-            本页 9 席 · 在线 {sessions.length}
-            {sessions.length > 9
-              ? ` · 其余 ${sessions.length - 9} 席未显示`
-              : ""}
-          </p>
-        </div>
         <AssetPrompt onInstalled={loadManifest} />
-    <section className={`opc-floor opc-time-${officeTime}`} style={{ ...OFFICE_SHADERS[officeTime].style, '--opc-office-background': `url("${OFFICE_SHADERS[officeTime].background}")` } as CSSProperties}>
+        <section
+          className={`opc-floor opc-time-${officeTime}`}
+          style={
+            {
+              ...OFFICE_SHADERS[officeTime].style,
+              "--opc-office-background": `url("${OFFICE_SHADERS[officeTime].background}")`,
+            } as CSSProperties
+          }
+        >
           {Array.from({ length: 9 }, (_, index) => {
             const session = visibleSessions[index];
             return session === undefined ? (
@@ -336,76 +340,82 @@ export function OfficePanel({
             );
           })}
         </section>
-        {selected === undefined ? null : <aside className="opc-comms" role="dialog" aria-label="角色通讯记录">
-          <div className="opc-commsHeader">
-            <div><p>角色通讯 · 真实记录</p>
-            <h2>{selected.title}</h2></div>
-            <button type="button" className="opc-chatClose" onClick={() => setSelectedId(undefined)}>关闭通讯</button>
-          </div>
-          <div className="opc-dialogue">
-            {history.length === 0 ? (
-              <div className="opc-speech">
-                <small>
-                  {selected.character} · {LABELS[selected.state]}
-                </small>
-                频道已接通，等待第一条记录。
+        {selected === undefined ? null : (
+          <aside className="opc-comms" role="dialog" aria-label="角色通讯记录">
+            <div className="opc-commsHeader">
+              <div>
+                <p>角色通讯 · 真实记录</p>
+                <h2>{selected.title}</h2>
               </div>
-            ) : (
-              history.map((node) => {
-                const item = nodeText(node);
-                return item === undefined ? null : (
-                  <div
-                    key={node.seq}
-                    className="opc-speech"
-                    data-error={item.error || undefined}
-                  >
-                    <small>{item.label}</small>
-                    {item.text}
-                  </div>
-                );
-              })
-            )}
-          </div>
-          <form
-            className="opc-order"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void send();
-            }}
-          >
-            <textarea
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void send();
-                }
-              }}
-              disabled={sending}
-              placeholder={
-                `向 ${selected.character} 下达指令…`
-              }
-            />
-            <div className="opc-orderRow">
-              <span>回车发送 · Shift + 回车换行</span>
               <button
-                className="opc-send"
-                type="submit"
-                disabled={
-                  draft.trim() === "" || sending
-                }
+                type="button"
+                className="opc-chatClose"
+                onClick={() => setSelectedId(undefined)}
               >
-                {sending ? "发送中…" : "下达指令"}
+                关闭通讯
               </button>
             </div>
-            {result !== undefined ? (
-              <p className="opc-result" role="status">
-                {result}
-              </p>
-            ) : null}
-          </form>
-        </aside>}
+            <div className="opc-dialogue">
+              {history.length === 0 ? (
+                <div className="opc-speech">
+                  <small>
+                    {selected.character} · {LABELS[selected.state]}
+                  </small>
+                  频道已接通，等待第一条记录。
+                </div>
+              ) : (
+                history.map((node) => {
+                  const item = nodeText(node);
+                  return item === undefined ? null : (
+                    <div
+                      key={node.seq}
+                      className="opc-speech"
+                      data-error={item.error || undefined}
+                    >
+                      <small>{item.label}</small>
+                      {item.text}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <form
+              className="opc-order"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void send();
+              }}
+            >
+              <textarea
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void send();
+                  }
+                }}
+                disabled={sending}
+                placeholder={`向 ${selected.character} 下达指令…`}
+              />
+              <div className="opc-orderRow">
+                <span>回车发送 · Shift + 回车换行</span>
+                <button
+                  className="opc-send"
+                  type="submit"
+                  disabled={draft.trim() === "" || sending}
+                >
+                  {sending ? "发送中…" : "下达指令"}
+                </button>
+              </div>
+              {result !== undefined ? (
+                <p className="opc-result" role="status">
+                  {result}
+                </p>
+              ) : null}
+            </form>
+          </aside>
+        )}
       </div>
     </main>
   );

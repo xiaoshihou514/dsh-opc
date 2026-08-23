@@ -1,17 +1,42 @@
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type { ClientContext, ISessions } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ClientContext, ISessions, ObservableSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
 import { OfficeTrigger } from './OfficeTrigger.tsx'
+
+export interface OfficeSessionList {
+  ids: readonly string[]
+  current: string | undefined
+  byId: Record<string, {
+    title?: string
+    displayTitle?: string
+    cwd?: string
+    running?: boolean
+    blank?: boolean
+    updatedAt?: number
+  }>
+}
+
+export interface OfficeModelState {
+  current: { model: string } | null
+}
+
+interface ModelDirectories {
+  directoryFor(sessionId: string): {
+    store: ObservableSnapshot<OfficeModelState>
+    load(): Promise<unknown>
+  }
+}
 
 // Cordis guards service access at runtime; `sessions` is required for the
 // selected character's prompt channel, not merely as a package dependency.
-export const inject = ['slots', 'sessions']
+export const inject = ['slots', 'sessions', 'modelDirectories']
 
 export function apply(ctx: ClientContext): void {
   // The slot-runtime's store namespace also uses the word "sessions". Keep
   // this feature on the public runtime contract instead of that render-store
   // inference path.
   const sessionRuntime = ctx.sessions as unknown as ISessions
+  const modelDirectories = (ctx as unknown as { modelDirectories: ModelDirectories }).modelDirectories
   // The sidebar footer is a horizontal action row. Other plugins can place a
   // full-width item there, which leaves subsequent controls clipped. The shell
   // overlay is explicitly additive and keeps this entry independent of sidebar
@@ -30,6 +55,12 @@ export function apply(ctx: ClientContext): void {
         // the user on the same conversation.
         sessionRuntime.open(sessionId as never)
         return sessionRuntime.binding(sessionId as never)?.session
+      },
+      sessionList: sessionRuntime.list as ObservableSnapshot<OfficeSessionList>,
+      modelSelection: (sessionId: string) => {
+        const directory = modelDirectories.directoryFor(sessionId)
+        void directory.load().catch(() => undefined)
+        return directory.store
       },
     }) }, OfficeTrigger)
   })

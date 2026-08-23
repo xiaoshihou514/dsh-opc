@@ -12,6 +12,7 @@ import type {
   ObservableSnapshot,
 } from "@deepseek-ai/dsh-client-runtime/client";
 import { SessionStore } from "./session-store.ts";
+import type { OfficeModelState, OfficeSessionList } from "./index.ts";
 import {
   OFFICE_SEAT_ORDER,
   OFFICE_SHADERS,
@@ -34,13 +35,14 @@ const FULLSCREEN_CSS = `.opc-office{position:fixed;inset:0;min-height:0;overflow
 
 const CONVERSATION_NODE_CSS = `.opc-commsHeader{padding-left:140px}.opc-conversationNode{display:flex;flex-direction:column;align-items:flex-start;gap:8px;width:100%;scroll-margin:18px 0}.opc-conversationNode:has(.opc-message[data-role="user"]){align-items:flex-end}@media(max-width:760px){.opc-commsHeader{padding-left:72px}}`;
 const UI_POLISH_CSS = `.opc-comms{grid-template-rows:64px minmax(0,1fr) auto;background:#0d111a}.opc-commsHeader{padding-top:8px;padding-bottom:8px;border-bottom:1px solid #604d48;background:linear-gradient(90deg,#372b3b,#222b40)}.opc-commsHeader p{font-size:9px}.opc-commsHeader h2{margin-top:2px;font-size:18px;line-height:1.2}.opc-commsMain{grid-template-columns:minmax(0,1fr) clamp(250px,22vw,360px) clamp(150px,12vw,210px)}.opc-dialogue{gap:10px;padding:22px max(28px,6vw);background:#0d131e}.opc-conversationNode{gap:6px}.opc-conversationNode:empty{display:none}.opc-message{width:min(820px,100%);font-size:14px}.opc-message[data-role="user"]{max-width:min(680px,88%);padding:9px 13px;background:#192433}.opc-disclosure{width:min(820px,100%)}.opc-disclosure summary{padding:7px 2px}.opc-chatActor{border-left:1px solid #4f4547;background-image:linear-gradient(#111827b8,#111827b8),var(--opc-office-background);background-position:center;background-size:cover}.opc-chatActorVideo{bottom:46px;width:min(100%,calc(100vh - 190px),480px);height:auto;aspect-ratio:1;object-fit:contain}.opc-chatActorHud{right:10px;bottom:10px;left:10px;padding:7px 9px;box-shadow:none}.opc-callNav{padding:12px 8px;border-left:1px solid #303640;background:#090d14}.opc-callNavTitle{margin-bottom:6px}.opc-callPoint{min-height:30px}.opc-order{padding:10px max(24px,8vw) 11px;border-top:1px solid #5d4b47;background:#151722}.opc-order textarea{height:50px;padding:12px 14px;border:1px solid #7b685b}.opc-orderRow{margin-top:5px}.opc-send{padding:7px 16px}.opc-chatClose{padding:6px 10px;box-shadow:none}.opc-collapseToggle{padding:5px 8px;border:1px solid #4b5360;background:#171d28}.opc-exit{top:12px;left:14px;padding:7px 11px;box-shadow:none}@media(max-width:1050px){.opc-commsMain{grid-template-columns:minmax(0,1fr) 280px 44px}.opc-chatActorVideo{width:min(100%,calc(100vh - 190px))}}@media(max-width:760px){.opc-comms{grid-template-rows:58px minmax(0,1fr) auto}.opc-dialogue{padding:16px}.opc-order{padding:8px 12px}.opc-order textarea{height:46px}}`;
+const FINAL_UI_CSS = `.opc-commsHeader{padding:10px 20px}.opc-commsMain{position:relative;grid-template-columns:minmax(0,1fr) clamp(250px,23vw,380px)}.opc-chatActor{appearance:none;padding:0;border-top:0;border-right:0;border-bottom:0;color:inherit;text-align:left;cursor:pointer}.opc-chatActor:hover .opc-chatActorVideo,.opc-chatActor:focus-visible .opc-chatActorVideo{filter:var(--opc-character-filter) brightness(1.12) drop-shadow(5px 8px 0 #05081299)}.opc-chatActor:focus-visible{outline:2px solid #e2b65d;outline-offset:-2px}.opc-callNav{position:absolute;z-index:8;top:12px;right:12px;bottom:12px;width:min(210px,17vw);padding:11px 8px;border:1px solid #3b4654;background:#080d15e8;box-shadow:0 8px 28px #0009;backdrop-filter:blur(8px)}.opc-callNavList{mask-image:linear-gradient(#000 92%,transparent)}@media(max-width:1050px){.opc-commsMain{grid-template-columns:minmax(0,1fr) 270px}.opc-callNav{width:44px;padding:9px 6px}.opc-callNavTitle,.opc-callPoint span{display:none}.opc-callPoint{display:block;padding:5px}.opc-callPoint i{margin:auto}}@media(max-width:760px){.opc-commsHeader{padding:8px 12px}.opc-commsMain{grid-template-columns:minmax(0,1fr)}.opc-callNav{right:8px;top:8px;bottom:8px;width:40px}}`;
 
 function ensureStyle(): void {
   if (document.querySelector("#dsh-opc-style") !== null) return;
   const style = document.createElement("style");
   style.id = "dsh-opc-style";
   style.textContent =
-    OFFICE_CSS + GAME_CSS + SHADER_CSS + ANCHOR_CSS + CHAT_CSS + FULLSCREEN_CSS + CONVERSATION_NODE_CSS + UI_POLISH_CSS;
+    OFFICE_CSS + GAME_CSS + SHADER_CSS + ANCHOR_CSS + CHAT_CSS + FULLSCREEN_CSS + CONVERSATION_NODE_CSS + UI_POLISH_CSS + FINAL_UI_CSS;
   document.head.append(style);
 }
 
@@ -76,9 +78,11 @@ function characterName(
   character: string,
   manifest: CharacterManifest | undefined,
 ): string {
-  return manifest?.characters?.[character] === undefined
-    ? (manifest?.fallbackCharacter ?? character)
-    : character;
+  if (manifest?.characters === undefined) return character;
+  if (manifest.characters[character] !== undefined) return character;
+  if (manifest.characters[manifest.fallbackCharacter] !== undefined)
+    return manifest.fallbackCharacter;
+  return Object.keys(manifest.characters)[0] ?? character;
 }
 
 function sessionCharacter(
@@ -86,9 +90,10 @@ function sessionCharacter(
   manifest: CharacterManifest | undefined,
 ): string {
   if (manifest === undefined) return session.character;
-  return manifest.characters?.[session.character] === undefined
+  const mapped = manifest.characters?.[session.character] === undefined
     ? characterForModel(session.model, manifest)
     : session.character;
+  return characterName(mapped, manifest);
 }
 
 function Worker({
@@ -287,7 +292,8 @@ function ConversationEntry({
                 <MarkdownText text={block.text} codeLabels={MARKDOWN_LABELS} />
               </div>
             );
-          if (block.kind === "reasoning" && block.text !== "")
+          if (block.kind === "reasoning" && block.text !== "") {
+            if (hideSuccessfulTools) return null;
             return (
               <details className="opc-disclosure" key={index}>
                 <summary>思考 · 点击展开</summary>
@@ -299,6 +305,7 @@ function ConversationEntry({
                 </div>
               </details>
             );
+          }
           if (block.kind === "tool-call") {
             if (
               hideSuccessfulTools &&
@@ -413,19 +420,23 @@ function ConversationNav({
 }
 
 export function OfficePanel({
-  onExit,
   onSendPrompt,
   onConversation,
+  sessionList,
+  modelSelection,
 }: {
-  onExit(): void;
   onSendPrompt(sessionId: string, text: string): Promise<void>;
   onConversation(
     sessionId: string,
   ): ObservableSnapshot<{ nodes: readonly ConversationNode[] }> | undefined;
+  sessionList: ObservableSnapshot<OfficeSessionList>;
+  modelSelection(sessionId: string): ObservableSnapshot<OfficeModelState>;
 }): JSX.Element {
   ensureStyle();
   const [store] = useState(() => new SessionStore());
   const [snapshot, setSnapshot] = useState(store.snapshot);
+  const [catalog, setCatalog] = useState(() => sessionList.getSnapshot());
+  const [models, setModels] = useState<Record<string, string>>({});
   const [manifest, setManifest] = useState<CharacterManifest>();
   const [selectedId, setSelectedId] = useState<string>();
   const [draft, setDraft] = useState("");
@@ -446,6 +457,35 @@ export function OfficePanel({
     };
   }, [store]);
   useEffect(() => {
+    const update = (): void => setCatalog(sessionList.getSnapshot());
+    update();
+    return sessionList.subscribe(update);
+  }, [sessionList]);
+  useEffect(() => {
+    const stops: Array<() => void> = [];
+    const updateModel = (sessionId: string, source: ObservableSnapshot<OfficeModelState>): void => {
+      const model = source.getSnapshot().current?.model;
+      if (model === undefined) return;
+      setModels((current) =>
+        current[sessionId] === model ? current : { ...current, [sessionId]: model },
+      );
+    };
+    const orderedIds = catalog.current === undefined
+      ? catalog.ids
+      : [catalog.current, ...catalog.ids.filter((id) => id !== catalog.current)];
+    for (const sessionId of orderedIds.slice(0, 6)) {
+      try {
+        const source = modelSelection(sessionId);
+        updateModel(sessionId, source);
+        stops.push(source.subscribe(() => updateModel(sessionId, source)));
+      } catch {
+        // A session removed between the list snapshot and scope lookup is
+        // simply omitted on the next catalog publication.
+      }
+    }
+    return () => stops.forEach((stop) => stop());
+  }, [catalog.ids, catalog.current, modelSelection]);
+  useEffect(() => {
     const refresh = (): void => setOfficeTime(officeTimeAt());
     const timer = window.setInterval(refresh, 60_000);
     return () => window.clearInterval(timer);
@@ -457,7 +497,45 @@ export function OfficePanel({
       .catch(() => {});
   }, []);
   useEffect(loadManifest, []);
-  const sessions = snapshot?.sessions ?? [];
+  const liveSessions = snapshot?.sessions ?? [];
+  const liveById = new Map(liveSessions.map((session) => [session.id, session]));
+  const orderedCatalogIds = catalog.current === undefined
+    ? catalog.ids
+    : [catalog.current, ...catalog.ids.filter((id) => id !== catalog.current)];
+  const catalogSessions = orderedCatalogIds.map((id, index): SessionView => {
+    const row = catalog.byId[id];
+    const live = liveById.get(id);
+    const model = models[id] ?? live?.model ?? "default";
+    const title =
+      row?.title?.trim() ||
+      row?.displayTitle?.trim() ||
+      (row?.blank ? "新会话" : `会话 ${index + 1}`);
+    return {
+      id,
+      title,
+      model,
+      character:
+        manifest === undefined
+          ? (live?.character ?? "fallback")
+          : characterForModel(model, manifest),
+      state: live?.state ?? (row?.running ? "thinking" : "idle"),
+      stateSince: live?.stateSince ?? row?.updatedAt ?? Date.now(),
+      ...(row?.cwd === undefined ? {} : { workspace: row.cwd }),
+      ...(live?.runningSince === undefined
+        ? {}
+        : { runningSince: live.runningSince }),
+      ...(live?.activeTool === undefined
+        ? {}
+        : { activeTool: live.activeTool }),
+      ...(live?.approval === undefined ? {} : { approval: live.approval }),
+      ...(live?.error === undefined ? {} : { error: live.error }),
+    };
+  });
+  const catalogIds = new Set(orderedCatalogIds);
+  const sessions = [
+    ...catalogSessions,
+    ...liveSessions.filter((session) => !catalogIds.has(session.id)),
+  ];
   const visibleSessions = sessions.slice(0, 6);
   const selected = sessions.find((session) => session.id === selectedId);
   const selectedCharacter =
@@ -525,9 +603,6 @@ export function OfficePanel({
   };
   return (
     <main className="opc-office">
-      <button type="button" className="opc-exit" onClick={onExit}>
-        ← 返回 DSH
-      </button>
       <div className="opc-stage">
         <AssetPrompt onInstalled={loadManifest} />
         <section
@@ -589,13 +664,6 @@ export function OfficePanel({
                   />
                   <span>隐藏成功的工具调用</span>
                 </label>
-                <button
-                  type="button"
-                  className="opc-chatClose"
-                  onClick={() => setSelectedId(undefined)}
-                >
-                  返回办公室
-                </button>
               </div>
             </div>
             <div className="opc-commsMain">
@@ -623,8 +691,11 @@ export function OfficePanel({
                   ))
                 )}
               </div>
-              <div
+              <button
+                type="button"
                 className="opc-chatActor"
+                aria-label="返回办公室"
+                onClick={() => setSelectedId(undefined)}
                 style={
                   {
                     ...OFFICE_SHADERS[officeTime].style,
@@ -656,7 +727,7 @@ export function OfficePanel({
                   <strong>{selectedCharacter}</strong>
                   <small>{LABELS[selected.state]}</small>
                 </div>
-              </div>
+              </button>
               <ConversationNav
                 nodes={history}
                 activeSeq={activeConversationSeq}

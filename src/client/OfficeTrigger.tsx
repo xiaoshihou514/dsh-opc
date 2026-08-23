@@ -5,6 +5,7 @@ import type {
 } from "@deepseek-ai/dsh-client-runtime/client";
 import { OfficePanel } from "./OfficePanel.tsx";
 import { OfficeTestPage } from "./OfficeTestPage.tsx";
+import type { OfficeModelState, OfficeSessionList } from "./index.ts";
 
 function isOfficeTestPath(): boolean {
   return (
@@ -19,17 +20,23 @@ function isOfficeTestPath(): boolean {
 export function OfficeTrigger({
   onSendPrompt,
   onConversation,
+  sessionList,
+  modelSelection,
 }: {
   onSendPrompt(sessionId: string, text: string): Promise<void>;
   onConversation(
     sessionId: string,
   ): ObservableSnapshot<{ nodes: readonly ConversationNode[] }> | undefined;
+  sessionList: ObservableSnapshot<OfficeSessionList>;
+  modelSelection(sessionId: string): ObservableSnapshot<OfficeModelState>;
 }): JSX.Element {
   if (isOfficeTestPath()) return <OfficeTestPage />;
   return (
     <OfficeLauncher
       onSendPrompt={onSendPrompt}
       onConversation={onConversation}
+      sessionList={sessionList}
+      modelSelection={modelSelection}
     />
   );
 }
@@ -37,11 +44,15 @@ export function OfficeTrigger({
 function OfficeLauncher({
   onSendPrompt,
   onConversation,
+  sessionList,
+  modelSelection,
 }: {
   onSendPrompt(sessionId: string, text: string): Promise<void>;
   onConversation(
     sessionId: string,
   ): ObservableSnapshot<{ nodes: readonly ConversationNode[] }> | undefined;
+  sessionList: ObservableSnapshot<OfficeSessionList>;
+  modelSelection(sessionId: string): ObservableSnapshot<OfficeModelState>;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -97,9 +108,10 @@ function OfficeLauncher({
           }}
         >
           <OfficePanel
-            onExit={() => setOpen(false)}
             onSendPrompt={onSendPrompt}
             onConversation={onConversation}
+            sessionList={sessionList}
+            modelSelection={modelSelection}
           />
         </div>
       ) : null}

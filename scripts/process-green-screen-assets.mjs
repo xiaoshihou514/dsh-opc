@@ -19,6 +19,19 @@ function run(command, args) {
   })
 }
 
+function capture(command, args) {
+  return new Promise((resolve, reject) => {
+    const output = []
+    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'inherit'] })
+    child.stdout.on('data', chunk => output.push(chunk))
+    child.once('error', reject)
+    child.once('exit', code => {
+      if (code === 0) resolve(Buffer.concat(output))
+      else reject(new Error(`${command} exited with ${code}`))
+    })
+  })
+}
+
 async function sourceVideos() {
   const characters = await readdir(sourceRoot, { withFileTypes: true })
   const videos = []
@@ -36,19 +49,56 @@ async function sourceVideos() {
   return videos
 }
 
-// Both source watermarks sit entirely on the green screen. The generously
-// sized delogo areas remove the marks before keying, while staying clear of
-// the actor. colorkey's blend also turns the soft green-tinted floor shadows
-// into alpha rather than leaving a green halo around the animation.
-const filter = [
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b)
+  return sorted[Math.floor(sorted.length / 2)]
+}
+
+async function averageCrop(input, crop) {
+  const pixels = await capture('ffmpeg', [
+    '-v', 'error', '-ss', '0.5', '-i', input, '-map', '0:v:0',
+    '-vf', `crop=32:32:${crop.x}:${crop.y},format=rgb24`,
+    '-frames:v', '1', '-f', 'rawvideo', 'pipe:1',
+  ])
+  if (pixels.length !== 32 * 32 * 3) {
+    throw new Error(`Could not sample a 32 × 32 background region from ${input}`)
+  }
+  const average = [0, 0, 0]
+  for (let offset = 0; offset < pixels.length; offset += 3) {
+    average[0] += pixels[offset]
+    average[1] += pixels[offset + 1]
+    average[2] += pixels[offset + 2]
+  }
+  return average.map(component => Math.round(component / (32 * 32)))
+}
+
+async function backgroundKey(input) {
+  // These positions are source-background-only regions on the supplied 720 px
+  // square clips. Taking the per-channel median makes the key robust to a
+  // thought bubble or compression noise in any one sample.
+  const samples = await Promise.all([
+    averageCrop(input, { x: 344, y: 36 }),
+    averageCrop(input, { x: 24, y: 220 }),
+    averageCrop(input, { x: 664, y: 220 }),
+  ])
+  const rgb = [0, 1, 2].map(channel => median(samples.map(sample => sample[channel])))
+  return rgb.map(component => component.toString(16).padStart(2, '0')).join('')
+}
+
+function filterFor(background) {
+  // Both watermarks sit entirely on the green screen. Remove them before
+  // keying. A narrow, minimally feathered per-video key preserves foreground
+  // RGB values while making the green floor shadow transparent too.
+  return [
   // The supplied source set is 720 × 720. delogo accepts integer geometry,
   // so keep these source-specific rectangles rather than relying on filters'
   // inconsistent expression support across ffmpeg versions.
   'delogo=x=7:y=7:w=137:h=65',
   'delogo=x=547:y=648:w=166:h=65',
-  'colorkey=0x55a66a:0.25:0.14',
+    `colorkey=0x${background}:0.18:0.02`,
   'format=yuva420p',
-].join(',')
+  ].join(',')
+}
 
 const videos = await sourceVideos()
 if (videos.length === 0) {
@@ -65,10 +115,11 @@ for (const video of videos) {
   await mkdir(processedDirectory, { recursive: true })
   await mkdir(characterDirectory, { recursive: true })
   await rm(temporary, { force: true })
-  console.log(`Processing ${video.character}/${video.name}`)
+  const background = await backgroundKey(video.input)
+  console.log(`Processing ${video.character}/${video.name} (key #${background})`)
   await run('ffmpeg', [
     '-y', '-hide_banner', '-loglevel', 'error', '-i', video.input,
-    '-map', '0:v:0', '-vf', filter,
+    '-map', '0:v:0', '-vf', filterFor(background),
     '-an', '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p',
     '-crf', '30', '-b:v', '0', '-deadline', 'good', '-cpu-used', '4',
     '-row-mt', '1', '-auto-alt-ref', '0', temporary,

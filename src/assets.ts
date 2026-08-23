@@ -20,7 +20,7 @@ const RELEASE_REPOSITORY =
   process.env.DSH_OPC_ASSET_REPOSITORY ?? "xiaoshihou514/dsh-opc";
 const RELEASE_ASSET = "dsh-opc-assets.tar.gz";
 const ANIMATION_FILE =
-  /^(idle|thinking|reading|writing|waiting_job|waiting_permission|error)-(\d+)\.webm$/;
+  /^(idle|thinking|reading|writing|await|error)-(\d+)\.webm$/;
 
 export function assetCacheDir(): string {
   return join(process.env.DSH_HOME?.trim() || join(homedir(), ".dsh"), "opc");

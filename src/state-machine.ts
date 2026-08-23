@@ -36,7 +36,7 @@ export function classifyTool(name: string): "reading" | "writing" {
 }
 
 export function stateOf(facts: SessionFacts): SessionState {
-  if (facts.approval !== undefined) return "waiting_permission";
+  if (facts.approval !== undefined) return "await";
   if (facts.error !== undefined) return "error";
   if (facts.activeTool !== undefined) return classifyTool(facts.activeTool);
   return facts.running ? "thinking" : "idle";

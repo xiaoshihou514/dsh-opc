@@ -5,8 +5,7 @@ export type SessionState =
   | "thinking"
   | "reading"
   | "writing"
-  | "waiting_job"
-  | "waiting_permission"
+  | "await"
   | "error";
 
 export interface ApprovalView {

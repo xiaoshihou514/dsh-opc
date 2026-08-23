@@ -58,12 +58,12 @@ The host maps a live session to exactly one of these states:
 
 | State                | Used when                                           |
 | -------------------- | --------------------------------------------------- |
-| `thinking`           | The agent is running without an active tool.        |
-| `reading`            | A read-only tool is active.                         |
-| `writing`            | A mutating/editing tool is active.                  |
-| `waiting_job`        | The agent is idle or awaiting work/tool completion. |
-| `waiting_permission` | A manual approval is open.                          |
-| `error`              | The current turn ends in an error.                  |
+| `idle`     | The agent is idle and ready for work.          |
+| `thinking` | The agent is running without an active tool.   |
+| `reading`  | A read-only tool is active.                    |
+| `writing`  | A mutating/editing tool is active.             |
+| `await`    | A manual approval is open.                     |
+| `error`    | The current turn ends in an error.             |
 
 When the state changes, the client chooses one entry at random from
 `characters[character-id].states[state]`. If that list is absent, it tries the

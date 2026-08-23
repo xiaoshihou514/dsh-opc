@@ -9,8 +9,7 @@ const STATES: readonly SessionState[] = [
   "thinking",
   "reading",
   "writing",
-  "waiting_job",
-  "waiting_permission",
+  "await",
   "error",
 ];
 const STATE_LABELS: Record<SessionState, string> = {
@@ -18,8 +17,7 @@ const STATE_LABELS: Record<SessionState, string> = {
   thinking: "思考",
   reading: "阅读",
   writing: "编写",
-  waiting_job: "等待任务",
-  waiting_permission: "等待授权",
+  await: "等待授权",
   error: "错误",
 };
 const TIMES: readonly OfficeTime[] = [

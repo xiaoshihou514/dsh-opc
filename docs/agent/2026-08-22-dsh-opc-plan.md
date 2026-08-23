@@ -108,21 +108,21 @@ Use these externally visible states exactly:
 
 | State | Meaning | WebM asset | Attention |
 | --- | --- | --- | --- |
+| `idle` | Agent is idle with no outstanding approval and ready for work. | `idle-0.webm` | no |
 | `thinking` | Agent is running a model/step without a tool. | `thinking.webm` | no |
 | `reading` | A read-only tool is active. | `reading.webm` | no |
 | `writing` | A mutating/editing tool is active. | `writing.webm` | no |
-| `waiting_job` | Agent is idle with no outstanding approval; ready for work or a tool result. | `waiting-job.webm` | no |
-| `waiting_permission` | A manual approval is open. | `waiting-permission.webm` | yes |
+| `await` | A manual approval is open. | `await-0.webm` | yes |
 | `error` | The latest current-turn terminal failure has not been superseded by a new running turn. | `error.webm` | yes |
 
 State precedence is deterministic:
 
-1. `waiting_permission`
+1. `await`
 2. `error`
 3. active tool (`reading` or `writing`, classified by a configurable tool-name
    table with safe default `writing` for unknown tools)
 4. `thinking` when `agent.status === "running"`
-5. `waiting_job`
+5. `idle`
 
 Every session projection includes `id`, a display title, workspace label,
 `state`, `stateSince`, `activeTool` when present, `approval` metadata safe for

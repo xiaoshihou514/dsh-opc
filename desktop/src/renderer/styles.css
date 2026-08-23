@@ -62,7 +62,7 @@ button {
   background: #20202ccc;
   cursor: pointer;
 }
-.waiting_permission span,
+.await span,
 .error span {
   color: #ff9a86;
 }

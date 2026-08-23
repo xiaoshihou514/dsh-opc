@@ -23,7 +23,7 @@ describe("office state machine", () => {
         error: { id: "e", summary: "bad" },
         approval: { id: "a", toolName: "bash" },
       }),
-    ).toBe("waiting_permission");
+    ).toBe("await");
     expect(
       stateOf({
         ...base,

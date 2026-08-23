@@ -35,13 +35,13 @@ async fn fetch_manifest(state: &PetState) -> Result<Value, String> {
 fn alert_key(session: &Value, now: i64) -> Option<(String, String)> {
   let id = session.get("id")?.as_str()?;
   match session.get("state")?.as_str()? {
-    "waiting_permission" => Some((format!("{id}:permission:{}", session.get("approval")?.get("id")?.as_str()?), "DSH needs your permission".into())),
-    "error" => Some((format!("{id}:error:{}", session.get("error")?.get("id")?.as_str()?), "A DSH session errored".into())),
+    "await" => Some((format!("{id}:permission:{}", session.get("approval")?.get("id")?.as_str()?), "DSH 需要你的授权".into())),
+    "error" => Some((format!("{id}:error:{}", session.get("error")?.get("id")?.as_str()?), "DSH 会话发生错误".into())),
     _ => {
       let since = session.get("runningSince")?.as_i64()?;
       let elapsed = now - since;
       let milestone = if elapsed >= 60 * 60_000 { Some((elapsed / 3_600_000) * 60) } else { [5, 10, 20, 30, 45].into_iter().filter(|minutes| elapsed >= minutes * 60_000).last() }?;
-      Some((format!("{id}:running:{milestone}"), format!("DSH session running for {milestone} minutes")))
+      Some((format!("{id}:running:{milestone}"), format!("DSH 会话已运行 {milestone} 分钟")))
     }
   }
 }

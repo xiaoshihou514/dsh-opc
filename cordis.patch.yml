@@ -1,5 +1,7 @@
 - insert:
-    - id: dsh-opc
+    # A separate root row is required for Harness to discover and activate the
+    # package's browser half. The host row below owns the live projection API.
+    - id: dsh-opc-client
       name: dsh-opc
     - id: dsh-opc-observer
       name: dsh-opc/observer

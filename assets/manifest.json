@@ -1,15 +1,51 @@
 {
   "apiVersion": 1,
-  "fallbackCharacter": "office-default",
+  "fallbackCharacter": "打工人",
   "modelCharacters": {
-    "deepseek-v4-pro": "analyst",
-    "deepseek-v4-flash": "courier",
-    "gpt-5.6": "architect"
+    "deepseek-v4-pro": "算算",
+    "deepseek-v4-flash": "嘟嘟",
+    "gpt-5.6": "小白龙"
   },
   "characters": {
-    "office-default": { "states": { "thinking": ["thinking-0.webm", "thinking-1.webm"], "reading": ["reading-0.webm", "reading-1.webm"], "writing": ["writing-0.webm", "writing-1.webm"], "waiting_job": ["waiting_job-0.webm", "waiting_job-1.webm"], "waiting_permission": ["waiting_permission-0.webm", "waiting_permission-1.webm"], "error": ["error-0.webm", "error-1.webm"] } },
-    "analyst": { "states": { "thinking": ["thinking-0.webm", "thinking-1.webm"], "reading": ["reading-0.webm", "reading-1.webm"], "writing": ["writing-0.webm", "writing-1.webm"], "waiting_job": ["waiting_job-0.webm", "waiting_job-1.webm"], "waiting_permission": ["waiting_permission-0.webm", "waiting_permission-1.webm"], "error": ["error-0.webm", "error-1.webm"] } },
-    "courier": { "states": { "thinking": ["thinking-0.webm", "thinking-1.webm"], "reading": ["reading-0.webm", "reading-1.webm"], "writing": ["writing-0.webm", "writing-1.webm"], "waiting_job": ["waiting_job-0.webm", "waiting_job-1.webm"], "waiting_permission": ["waiting_permission-0.webm", "waiting_permission-1.webm"], "error": ["error-0.webm", "error-1.webm"] } },
-    "architect": { "states": { "thinking": ["thinking-0.webm", "thinking-1.webm"], "reading": ["reading-0.webm", "reading-1.webm"], "writing": ["writing-0.webm", "writing-1.webm"], "waiting_job": ["waiting_job-0.webm", "waiting_job-1.webm"], "waiting_permission": ["waiting_permission-0.webm", "waiting_permission-1.webm"], "error": ["error-0.webm", "error-1.webm"] } }
+    "打工人": {
+      "states": {
+        "thinking": ["thinking-0.webm"],
+        "reading": ["reading-0.webm"],
+        "writing": ["writing-0.webm"],
+        "waiting_job": ["waiting_job-0.webm"],
+        "waiting_permission": ["waiting_permission-0.webm"],
+        "error": ["error-0.webm"]
+      }
+    },
+    "算算": {
+      "states": {
+        "thinking": ["thinking-0.webm"],
+        "reading": ["reading-0.webm"],
+        "writing": ["writing-0.webm"],
+        "waiting_job": ["waiting_job-0.webm"],
+        "waiting_permission": ["waiting_permission-0.webm"],
+        "error": ["error-0.webm"]
+      }
+    },
+    "嘟嘟": {
+      "states": {
+        "thinking": ["thinking-0.webm"],
+        "reading": ["reading-0.webm"],
+        "writing": ["writing-0.webm"],
+        "waiting_job": ["waiting_job-0.webm"],
+        "waiting_permission": ["waiting_permission-0.webm"],
+        "error": ["error-0.webm"]
+      }
+    },
+    "小白龙": {
+      "states": {
+        "thinking": ["thinking-0.webm"],
+        "reading": ["reading-0.webm"],
+        "writing": ["writing-0.webm"],
+        "waiting_job": ["waiting_job-0.webm"],
+        "waiting_permission": ["waiting_permission-0.webm"],
+        "error": ["error-0.webm"]
+      }
+    }
   }
 }

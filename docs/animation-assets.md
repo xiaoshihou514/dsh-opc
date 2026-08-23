@@ -45,6 +45,7 @@ clip is served only when it is listed under a character and state.
    output with `ffprobe` and play it in a browser before packing. Aim for
    short (2–8 second) clips and modest dimensions so several workers can play
    at once.
+
 5. Add the filename to the correct state array, run `pnpm assets:pack`, and
    test through `just dev-web` or a linked `dsh plugin --profile web add .`.
 
@@ -55,14 +56,14 @@ does not produce release-quality assets.
 
 The host maps a live session to exactly one of these states:
 
-| State | Used when |
-| --- | --- |
-| `thinking` | The agent is running without an active tool. |
-| `reading` | A read-only tool is active. |
-| `writing` | A mutating/editing tool is active. |
-| `waiting_job` | The agent is idle or awaiting work/tool completion. |
-| `waiting_permission` | A manual approval is open. |
-| `error` | The current turn ends in an error. |
+| State                | Used when                                           |
+| -------------------- | --------------------------------------------------- |
+| `thinking`           | The agent is running without an active tool.        |
+| `reading`            | A read-only tool is active.                         |
+| `writing`            | A mutating/editing tool is active.                  |
+| `waiting_job`        | The agent is idle or awaiting work/tool completion. |
+| `waiting_permission` | A manual approval is open.                          |
+| `error`              | The current turn ends in an error.                  |
 
 When the state changes, the client chooses one entry at random from
 `characters[character-id].states[state]`. If that list is absent, it tries the

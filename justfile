@@ -2,9 +2,12 @@ default:
   @just --list
 
 # Install Node dependencies for both the plugin and desktop pet.
-install:
+install-dev:
   pnpm install
   pnpm --dir desktop install
+
+install: install-dev
+  dsh plugin --profile web add "{{justfile_directory()}}"
 
 # Generate ignored placeholder WebM clips for local UI work.
 dummy-assets:
@@ -35,6 +38,9 @@ pet-check:
 # Produce the WebM archive that a tagged CI release uploads; does not publish it.
 pack-assets:
   pnpm assets:pack
+
+format:
+    prettier -w **/*.md **/*.js **/*.ts **/*.tsx **/*.css **/*.yaml **/*.json
 
 # Full local verification without creating a GitHub release.
 verify: check build pet-check

@@ -41,6 +41,7 @@ pack-assets:
 
 format:
     prettier -w **/*.md **/*.js **/*.ts **/*.tsx **/*.css **/*.yaml **/*.json
+    cd desktop/src-tauri/ && cargo fmt
 
 # Full local verification without creating a GitHub release.
 verify: check build pet-check

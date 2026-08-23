@@ -1,8 +1,9 @@
 import { createWriteStream } from 'node:fs'
-import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises'
+import { once } from 'node:events'
 import { homedir } from 'node:os'
 import { dirname, join, normalize, resolve } from 'node:path'
-import { pipeline } from 'node:stream/promises'
+import { fileURLToPath } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { CharacterManifest } from './protocol.ts'
 
@@ -11,7 +12,37 @@ const RELEASE_REPOSITORY = process.env.DSH_OPC_ASSET_REPOSITORY ?? 'xiaoshihou51
 const RELEASE_ASSET = 'dsh-opc-assets.tar.gz'
 
 export function assetCacheDir(): string {
-  return join(process.env.DSH_HOME?.trim() || join(homedir(), '.dsh'), 'dsh-opc', 'assets')
+  return join(process.env.DSH_HOME?.trim() || join(homedir(), '.dsh'), 'opc')
+}
+
+/** Assets beside a linked checkout are local-development assets, never downloaded. */
+export function bundledAssetDir(): string { return fileURLToPath(new URL('../assets/', import.meta.url)) }
+
+async function hasWebm(root: string): Promise<boolean> {
+  try {
+    const characters = await readdir(join(root, 'characters'), { withFileTypes: true })
+    for (const character of characters) {
+      if (!character.isDirectory()) continue
+      if ((await readdir(join(root, 'characters', character.name))).some(file => file.endsWith('.webm'))) return true
+    }
+  } catch {}
+  return false
+}
+
+export interface AssetStatus {
+  directory: string
+  installed: boolean
+  localDev: boolean
+}
+
+export async function assetStatus(): Promise<AssetStatus> {
+  const localDev = await hasWebm(bundledAssetDir())
+  return { directory: assetCacheDir(), localDev, installed: localDev || await hasWebm(assetCacheDir()) }
+}
+
+/** Chooses checkout assets for local development, otherwise the user-managed cache. */
+export async function activeAssetDir(): Promise<string> {
+  return (await assetStatus()).localDev ? bundledAssetDir() : assetCacheDir()
 }
 
 export async function readManifest(root = assetCacheDir()): Promise<CharacterManifest | undefined> {
@@ -21,7 +52,7 @@ export async function readManifest(root = assetCacheDir()): Promise<CharacterMan
 }
 
 /** Fetches the release asset opportunistically; a bundled/local cache remains usable offline. */
-export async function updateAssets(logger: { warn(message: string): void }): Promise<void> {
+export async function updateAssets(logger: { warn(message: string): void }, onProgress?: (received: number, total: number) => void): Promise<void> {
   const root = assetCacheDir()
   const endpoint = `https://api.github.com/repos/${RELEASE_REPOSITORY}/releases/latest`
   try {
@@ -41,7 +72,17 @@ export async function updateAssets(logger: { warn(message: string): void }): Pro
     const staging = `${root}.staging-${process.pid}`
     await mkdir(staging, { recursive: true, mode: 0o700 })
     const archive = join(staging, RELEASE_ASSET)
-    await pipeline(download.body as never, createWriteStream(archive, { mode: 0o600 }))
+    const output = createWriteStream(archive, { mode: 0o600 })
+    let received = 0
+    onProgress?.(received, length)
+    for await (const chunk of download.body as unknown as AsyncIterable<Uint8Array>) {
+      received += chunk.byteLength
+      if (received > MAX_ARCHIVE_BYTES) throw new Error('download exceeds size limit')
+      if (!output.write(chunk)) await once(output, 'drain')
+      onProgress?.(received, length)
+    }
+    output.end()
+    await once(output, 'finish')
     const downloaded = await stat(archive)
     if (downloaded.size > MAX_ARCHIVE_BYTES) throw new Error('download exceeds size limit')
     // Deliberately use tar's safe extraction flags and a controlled staging root.

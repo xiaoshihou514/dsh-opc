@@ -1,9 +1,14 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type { WebServer } from '@deepseek-ai/dsh-host-webserver'
 import type { Snapshot } from './protocol.ts'
-import { assetCacheDir, serveAsset } from './assets.ts'
+import { activeAssetDir, serveAsset } from './assets.ts'
 
-export interface SnapshotSource { snapshot(): Snapshot, subscribe(listener: () => void): () => void }
+export interface SnapshotSource {
+  snapshot(): Snapshot
+  subscribe(listener: () => void): () => void
+  assetsUpdated?(): Promise<void>
+  assetStatus?(): Promise<unknown>
+}
 
 function json(res: import('node:http').ServerResponse, body: unknown): void {
   res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
@@ -12,7 +17,21 @@ function json(res: import('node:http').ServerResponse, body: unknown): void {
 
 export function registerRoutes(ctx: Context, webServer: WebServer, source: SnapshotSource): void {
   ctx.effect(() => webServer.register({ kind: 'exact', path: '/dsh-opc/v1/state', handler: (_req, res) => json(res, source.snapshot()) }), 'dsh-opc: state route')
-  ctx.effect(() => webServer.register({ kind: 'prefix', path: '/dsh-opc/v1/assets', handler: (req, res) => serveAsset(assetCacheDir(), req, res) }), 'dsh-opc: asset route')
+  ctx.effect(() => webServer.register({
+    kind: 'exact', path: '/dsh-opc/v1/assets/status', handler: async (req, res) => {
+      if (req.method !== 'GET') { res.writeHead(405).end(); return }
+      json(res, await source.assetStatus?.() ?? { apiVersion: 1, installed: false, localDev: false })
+    },
+  }), 'dsh-opc: asset status route')
+  ctx.effect(() => webServer.register({
+    kind: 'exact', path: '/dsh-opc/v1/assets/download', handler: async (req, res) => {
+      if (req.method !== 'POST') { res.writeHead(405).end(); return }
+      // An automatic initial download can be retried after a network failure.
+      await source.assetsUpdated?.()
+      json(res, await source.assetStatus?.() ?? { apiVersion: 1 })
+    },
+  }), 'dsh-opc: asset download route')
+  ctx.effect(() => webServer.register({ kind: 'prefix', path: '/dsh-opc/v1/assets', handler: async (req, res) => serveAsset(await activeAssetDir(), req, res) }), 'dsh-opc: asset route')
   ctx.effect(() => webServer.register({
     kind: 'exact', path: '/dsh-opc/v1/events', handler: (req, res) => {
       if (req.method !== 'GET') { res.writeHead(405).end(); return }

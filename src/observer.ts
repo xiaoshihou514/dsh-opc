@@ -7,7 +7,7 @@ import { API_VERSION, LONG_RUNNING_THRESHOLDS_MS, type Snapshot } from './protoc
 import { characterForModel, type CharacterManifest } from './protocol.ts'
 import { project, type SessionFacts } from './state-machine.ts'
 import { registerRoutes } from './routes.ts'
-import { readManifest, updateAssets } from './assets.ts'
+import { activeAssetDir, assetStatus, readManifest, updateAssets } from './assets.ts'
 
 export const name = 'dsh-opc-observer'
 export const inject = ['agents', 'webServer']
@@ -17,6 +17,7 @@ const DEFAULT_MANIFEST: CharacterManifest = { apiVersion: API_VERSION, character
 export function apply(ctx: Context): void {
   let revision = 0
   let manifest = DEFAULT_MANIFEST
+  let assetDownload: { state: 'local' | 'idle' | 'downloading' | 'complete' | 'error', received: number, total: number, error?: string } = { state: 'idle', received: 0, total: 0 }
   const sessions = new Map<string, SessionFacts>()
   const listeners = new Set<() => void>()
   const publish = (): void => { revision += 1; for (const listener of listeners) listener() }
@@ -29,13 +30,37 @@ export function apply(ctx: Context): void {
     ...(agent.session.header.cwd === undefined ? {} : { workspace: agent.session.header.cwd }),
     ...(agent.status === 'running' ? { runningSince: Date.now() } : {}),
   })
+  const refreshAssets = async (): Promise<void> => {
+    manifest = await readManifest(await activeAssetDir()) ?? manifest
+    for (const facts of sessions.values()) facts.character = characterForModel(facts.model, manifest)
+    publish()
+  }
+  const downloadAssets = async (): Promise<void> => {
+    const initial = await assetStatus()
+    if (initial.localDev) { assetDownload = { state: 'local', received: 0, total: 0 }; publish(); return }
+    if (initial.installed) { assetDownload = { state: 'complete', received: 0, total: 0 }; await refreshAssets(); return }
+    assetDownload = { state: 'downloading', received: 0, total: 0 }; publish()
+    try {
+      await updateAssets(ctx.logger('dsh-opc'), (received, total) => { assetDownload = { state: 'downloading', received, total }; publish() })
+      const installed = await assetStatus()
+      assetDownload = { state: installed.installed ? 'complete' : 'error', received: 0, total: 0, ...(installed.installed ? {} : { error: 'Animation archive was not available.' }) }
+      if (installed.installed) await refreshAssets(); else publish()
+    } catch (error) {
+      assetDownload = { state: 'error', received: 0, total: 0, error: error instanceof Error ? error.message : 'Animation download failed.' }
+      publish()
+    }
+  }
   const source = {
     snapshot: (): Snapshot => ({ apiVersion: API_VERSION, revision, serverTime: Date.now(), longRunningThresholdsMs: LONG_RUNNING_THRESHOLDS_MS, sessions: [...sessions.values()].map(project) }),
     subscribe: (listener: () => void): (() => void) => { listeners.add(listener); return () => listeners.delete(listener) },
+    assetsUpdated: refreshAssets,
+    assetStatus: async () => ({ apiVersion: API_VERSION, ...await assetStatus(), ...assetDownload }),
   }
   for (const agent of ctx.agents.list()) sessions.set(agent.id, makeFacts(agent))
   registerRoutes(ctx, ctx.webServer, source)
-  void updateAssets(ctx.logger('dsh-opc')).then(async () => { manifest = await readManifest() ?? manifest; for (const facts of sessions.values()) facts.character = characterForModel(facts.model, manifest); publish() })
+  // Linked local checkouts use their existing clips. Installed users receive
+  // the archive automatically and the browser polls the visible progress state.
+  void downloadAssets()
   ctx.effect(() => ctx.on('agent/created', ({ agent }) => { sessions.set(agent.id, makeFacts(agent)); publish() }), 'dsh-opc: agent created')
   ctx.effect(() => ctx.on('agent/disposed', ({ agent }) => { sessions.delete(agent.id); publish() }), 'dsh-opc: agent disposed')
   ctx.effect(() => ctx.on('agent/status', ({ agent, status }) => {

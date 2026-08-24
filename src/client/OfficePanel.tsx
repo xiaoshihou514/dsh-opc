@@ -105,7 +105,7 @@ function characterName(
   return Object.keys(manifest.characters)[0] ?? character;
 }
 
-function sessionCharacter(
+export function sessionCharacter(
   session: SessionView,
   manifest: CharacterManifest | undefined,
 ): string {
@@ -123,7 +123,7 @@ function sessionCharacter(
  * frame, which removes the brief transparent/blank flash that a plain <video>
  * shows while its WebM is still loading.
  */
-function LoopVideo({
+export function LoopVideo({
   src,
   onError,
   className,
@@ -492,12 +492,16 @@ function ConversationNav({
 }
 
 export function OfficePanel({
+  onOpenNative,
+  onExit,
   onSendPrompt,
   onConversation,
   sessionList,
   archivedSessionIds,
   modelSelection,
 }: {
+  onOpenNative(sessionId: string): void;
+  onExit(): void;
   onSendPrompt(sessionId: string, text: string): Promise<void>;
   onConversation(
     sessionId: string,
@@ -520,6 +524,7 @@ export function OfficePanel({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<string>();
   const [history, setHistory] = useState<readonly ConversationNode[]>([]);
+  const [historyBlank, setHistoryBlank] = useState(false);
   const dialogueRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(true);
   const [hideSuccessfulTools, setHideSuccessfulTools] = useState(true);
@@ -683,16 +688,29 @@ export function OfficePanel({
   useEffect(() => {
     if (selected === undefined) {
       setHistory([]);
+      setHistoryBlank(false);
       return;
     }
     const source = onConversation(selected.id);
     if (source === undefined) {
       setHistory([]);
+      setHistoryBlank(false);
       return;
     }
-    const update = (): void => setHistory(source.getSnapshot().nodes);
-    update();
-    return source.subscribe(update);
+    const apply = (): void => {
+      const snap = (
+        source as unknown as {
+          getSnapshot(): {
+            nodes: readonly ConversationNode[];
+            blank: boolean;
+          };
+        }
+      ).getSnapshot();
+      setHistory(snap.nodes);
+      setHistoryBlank(snap.blank);
+    };
+    apply();
+    return source.subscribe(apply);
   }, [selected?.id, onConversation]);
   const send = async (): Promise<void> => {
     if (selected === undefined || draft.trim() === "" || sending) return;
@@ -710,6 +728,14 @@ export function OfficePanel({
   };
   return (
     <main className="opc-office">
+      <button
+        type="button"
+        className="opc-exit"
+        aria-label="返回"
+        onClick={onExit}
+      >
+        ← 返回
+      </button>
       <div className="opc-stage">
         <AssetPrompt onInstalled={loadManifest} />
         <section
@@ -745,10 +771,7 @@ export function OfficePanel({
                 selected={selected?.id === session.id}
                 row={seat.row}
                 seatStyle={seatStyle}
-                onSelect={() => {
-                  setSelectedId(session.id);
-                  setResult(undefined);
-                }}
+                onSelect={() => onOpenNative(session.id)}
               />
             );
           })}
@@ -789,7 +812,9 @@ export function OfficePanel({
                     <small className="opc-messageLabel">
                       {selectedCharacter} · {LABELS[selected.state]}
                     </small>
-                    频道已接通，等待第一条记录。
+                    {historyBlank
+                      ? "暂无记录。"
+                      : "正在加载对话，请稍候…"}
                   </div>
                 ) : (
                   history.map((node) => (

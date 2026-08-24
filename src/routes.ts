@@ -42,6 +42,25 @@ export function registerRoutes(
       `dsh-opc: office test page route ${path}`,
     );
   }
+  // The office is a first-class path too: /office redirects into the shell so
+  // the client can render the office panel as its own page.
+  for (const path of ["/office", "/:/office"]) {
+    ctx.effect(
+      () =>
+        webServer.register({
+          kind: "exact",
+          path,
+          handler: (req, res) => {
+            if (req.method !== "GET") {
+              res.writeHead(405).end();
+              return;
+            }
+            res.writeHead(302, { location: "/?office=1" }).end();
+          },
+        }),
+      `dsh-opc: office page route ${path}`,
+    );
+  }
   ctx.effect(
     () =>
       webServer.register({

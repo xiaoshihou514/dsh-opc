@@ -7,6 +7,7 @@ import type {
   ObservableSnapshot,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import { OfficeTrigger } from './OfficeTrigger.tsx'
+import { PetFloat } from './PetFloat.tsx'
 
 export interface OfficeSessionList {
   ids: readonly string[]
@@ -71,11 +72,21 @@ export function apply(ctx: ClientContext): void {
       },
       sessionList: sessionRuntime.list as ObservableSnapshot<OfficeSessionList>,
       archivedSessionIds,
+      openSession: (sessionId: string) => {
+        // Select the session in the host so the native conversation UI opens.
+        sessionRuntime.open(sessionId as never)
+      },
       modelSelection: (sessionId: string) => {
         const directory = modelDirectories.directoryFor(sessionId)
         void directory.load().catch(() => undefined)
         return directory.store
       },
     }) }, OfficeTrigger)
+    // The always-on hover pet: pinned to the native conversation UI so the
+    // character animation lives there, following the host's current session.
+    yield ctx.slots.register({ name: 'shell.overlay', id: 'dsh-opc-pet', order: 21, inject: () => ({
+      sessionList: sessionRuntime.list as ObservableSnapshot<OfficeSessionList>,
+      onOpen: (sessionId: string) => sessionRuntime.open(sessionId as never),
+    }) }, PetFloat)
   })
 }

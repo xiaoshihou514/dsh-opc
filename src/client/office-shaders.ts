@@ -74,9 +74,9 @@ export const OFFICE_SHADERS: Record<OfficeTime, OfficeShader> = {
   afternoon: {
     label: '午后', background: '/dsh-opc/v1/assets/office-afternoon.png', seats: SEATS.afternoon,
     style: {
-      '--opc-atmosphere': 'linear-gradient(108deg,#ffad422c 0%,#ffc86b13 46%,#54200d16 100%)',
-      '--opc-opacity': '.82', '--opc-blend': 'soft-light',
-      '--opc-character-filter': 'brightness(1.01) contrast(1.03) saturate(1.1) sepia(.2) hue-rotate(-5deg)',
+      '--opc-atmosphere': 'linear-gradient(108deg,#ffffff52 0%,#ffffff2e 46%,#89b0d522 100%)',
+      '--opc-opacity': '.6', '--opc-blend': 'screen',
+      '--opc-character-filter': 'brightness(1.08) contrast(.97) saturate(.88)',
     } as CSSProperties,
   },
   evening: {

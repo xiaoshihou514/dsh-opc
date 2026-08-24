@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import type {
   ConversationNode,
   ObservableSnapshot,
@@ -16,12 +15,21 @@ function isOfficeTestPath(): boolean {
   );
 }
 
-/** A game-like mode switch that takes over the client until dismissed. */
+function isOfficePath(): boolean {
+  return (
+    window.location.pathname === "/office" ||
+    window.location.pathname === "/:/office" ||
+    new URLSearchParams(window.location.search).has("office")
+  );
+}
+
+/** The office is a first-class `/office` page; outside it we show the entry button. */
 export function OfficeTrigger({
   onSendPrompt,
   onConversation,
   sessionList,
   archivedSessionIds,
+  openSession,
   modelSelection,
 }: {
   onSendPrompt(sessionId: string, text: string): Promise<void>;
@@ -30,97 +38,64 @@ export function OfficeTrigger({
   ): ObservableSnapshot<{ nodes: readonly ConversationNode[] }> | undefined;
   sessionList: ObservableSnapshot<OfficeSessionList>;
   archivedSessionIds?: ObservableSnapshot<readonly string[]> | undefined;
+  openSession(sessionId: string): void;
   modelSelection(sessionId: string): ObservableSnapshot<OfficeModelState>;
 }): JSX.Element {
   if (isOfficeTestPath()) return <OfficeTestPage />;
-  return (
-    <OfficeLauncher
-      onSendPrompt={onSendPrompt}
-      onConversation={onConversation}
-      sessionList={sessionList}
-      archivedSessionIds={archivedSessionIds}
-      modelSelection={modelSelection}
-    />
-  );
+  if (isOfficePath()) {
+    const leave = (): void => {
+      window.location.href = "/";
+    };
+    return (
+      <OfficePanel
+        onSendPrompt={onSendPrompt}
+        onConversation={onConversation}
+        sessionList={sessionList}
+        archivedSessionIds={archivedSessionIds}
+        onOpenNative={(id) => {
+          openSession(id);
+          leave();
+        }}
+        onExit={leave}
+        modelSelection={modelSelection}
+      />
+    );
+  }
+  return <OfficeLauncher />;
 }
 
-function OfficeLauncher({
-  onSendPrompt,
-  onConversation,
-  sessionList,
-  archivedSessionIds,
-  modelSelection,
-}: {
-  onSendPrompt(sessionId: string, text: string): Promise<void>;
-  onConversation(
-    sessionId: string,
-  ): ObservableSnapshot<{ nodes: readonly ConversationNode[] }> | undefined;
-  sessionList: ObservableSnapshot<OfficeSessionList>;
-  archivedSessionIds?: ObservableSnapshot<readonly string[]> | undefined;
-  modelSelection(sessionId: string): ObservableSnapshot<OfficeModelState>;
-}): JSX.Element {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("keydown", close);
-    return () => document.removeEventListener("keydown", close);
-  }, [open]);
+function OfficeLauncher(): JSX.Element {
   return (
-    <>
-      <button
-        type="button"
-        aria-label="打开 DSH 作战室"
-        aria-expanded={open}
-        onClick={() => setOpen(true)}
-        style={{
-          position: "fixed",
-          top: 76,
-          right: 20,
-          zIndex: 30,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          height: 42,
-          padding: "0 15px 0 12px",
-          border: "1px solid #ffd47788",
-          borderRadius: 8,
-          background: "linear-gradient(135deg,#352842,#1d2e45)",
-          boxShadow: "0 4px 16px #0006",
-          color: "#ffe4a7",
-          cursor: "pointer",
-          font: "700 13px ui-rounded,system-ui",
-          letterSpacing: ".06em",
-        }}
-      >
-        <span aria-hidden="true" style={{ fontSize: 18 }}>
-          ⌂
-        </span>
-        <span>作战室</span>
-      </button>
-      {open ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="DSH 作战室"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 1000,
-            overflow: "auto",
-          }}
-        >
-          <OfficePanel
-            onSendPrompt={onSendPrompt}
-            onConversation={onConversation}
-            sessionList={sessionList}
-            archivedSessionIds={archivedSessionIds}
-            modelSelection={modelSelection}
-          />
-        </div>
-      ) : null}
-    </>
+    <button
+      type="button"
+      aria-label="打开 DSH 办公室"
+      onClick={() => {
+        window.location.href = "/office";
+      }}
+      style={{
+        position: "fixed",
+        top: 76,
+        right: 20,
+        zIndex: 30,
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        height: 42,
+        padding: "0 15px 0 12px",
+        border: "1px solid #ffd47788",
+        borderRadius: 8,
+        background: "linear-gradient(135deg,#352842,#1d2e45)",
+        boxShadow: "0 4px 16px #0006",
+        color: "#ffe4a7",
+        cursor: "pointer",
+        font: "700 13px ui-rounded,system-ui",
+        letterSpacing: ".06em",
+      }}
+    >
+      <span aria-hidden="true" style={{ fontSize: 18 }}>
+        ⌂
+      </span>
+      <span>办公室</span>
+    </button>
   );
 }

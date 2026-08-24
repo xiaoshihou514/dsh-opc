@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { MarkdownText } from "@deepseek-ai/dsh-client-ui-primitives";
 import { characterForModel } from "../protocol.ts";
@@ -43,7 +43,9 @@ function ensureStyle(): void {
   style.id = "dsh-opc-style";
   style.textContent =
     OFFICE_CSS + GAME_CSS + SHADER_CSS + ANCHOR_CSS + CHAT_CSS + FULLSCREEN_CSS + CONVERSATION_NODE_CSS + UI_POLISH_CSS + FINAL_UI_CSS +
-    `.opc-worker[data-row="1"] .opc-monitor{top:0;bottom:auto;left:50%;transform:translate(-50%,-100%)}`;
+    `.opc-worker[data-row="1"] .opc-monitor{top:0;bottom:auto;left:50%;transform:translate(-50%,-100%)}` +
+    // 聊天面板：角色动画放到左侧列，对话在右侧；对话雷达半透明不遮住后面。
+    `.opc-commsMain{grid-template-columns:clamp(250px,23vw,380px) minmax(0,1fr)}.opc-chatActor{order:-1}.opc-callNav{background:rgba(8,13,21,.55);backdrop-filter:blur(3px)}@media(max-width:760px){.opc-commsMain{grid-template-columns:1fr}}`;
   document.head.append(style);
 }
 
@@ -114,6 +116,62 @@ function sessionCharacter(
   return characterName(mapped, manifest);
 }
 
+/**
+ * A single character loop. Each instance picks a pseudo-random start frame
+ * once its duration is known, so a freshly opened office does not play every
+ * worker in sync. The video stays invisible until it actually has a decodable
+ * frame, which removes the brief transparent/blank flash that a plain <video>
+ * shows while its WebM is still loading.
+ */
+function LoopVideo({
+  src,
+  onError,
+  className,
+  style,
+}: {
+  src: string;
+  onError?: () => void;
+  className?: string;
+  style?: CSSProperties;
+}): JSX.Element {
+  const [ready, setReady] = useState(false);
+  const ref = useRef<HTMLVideoElement>(null);
+  const seeded = useRef(false);
+  useEffect(() => {
+    setReady(false);
+    seeded.current = false;
+    const video = ref.current;
+    if (video === null) return;
+    const seed = (): void => {
+      if (seeded.current) return;
+      seeded.current = true;
+      const duration = video.duration;
+      if (Number.isFinite(duration) && duration > 0)
+        video.currentTime = Math.random() * duration;
+      setReady(true);
+    };
+    video.addEventListener("loadeddata", seed);
+    video.addEventListener("canplay", seed);
+    return () => {
+      video.removeEventListener("loadeddata", seed);
+      video.removeEventListener("canplay", seed);
+    };
+  }, [src]);
+  return (
+    <video
+      ref={ref}
+      className={className}
+      src={src}
+      muted
+      playsInline
+      autoPlay
+      loop
+      onError={onError}
+      style={{ opacity: ready ? 1 : 0, ...style }}
+    />
+  );
+}
+
 function Worker({
   session,
   manifest,
@@ -160,13 +218,9 @@ function Worker({
           ◉
         </div>
       ) : (
-        <video
+        <LoopVideo
           className="opc-video"
           src={source}
-          muted
-          playsInline
-          autoPlay
-          loop
           onError={() => setFailed(true)}
         />
       )}
@@ -466,6 +520,8 @@ export function OfficePanel({
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<string>();
   const [history, setHistory] = useState<readonly ConversationNode[]>([]);
+  const dialogueRef = useRef<HTMLDivElement>(null);
+  const atBottomRef = useRef(true);
   const [hideSuccessfulTools, setHideSuccessfulTools] = useState(true);
   const [activeConversationSeq, setActiveConversationSeq] = useState<number>();
   const [officeTime, setOfficeTime] = useState<OfficeTime>(() =>
@@ -610,6 +666,20 @@ export function OfficePanel({
   );
   useEffect(() => setChatAnimationFailed(false), [chatAnimation]);
   useEffect(() => setActiveConversationSeq(undefined), [selected?.id]);
+  // 聊天记录默认贴在最新一条：打开会话、或底部有新消息时滚到底。
+  // 用户手动往上翻时不打扰（记录是否贴底）。
+  useEffect(() => {
+    atBottomRef.current = true;
+    requestAnimationFrame(() => {
+      const el = dialogueRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
+  }, [selected?.id]);
+  useEffect(() => {
+    if (!atBottomRef.current) return;
+    const el = dialogueRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [history]);
   useEffect(() => {
     if (selected === undefined) {
       setHistory([]);
@@ -704,7 +774,16 @@ export function OfficePanel({
               </div>
             </div>
             <div className="opc-commsMain">
-              <div className="opc-dialogue">
+              <div
+                className="opc-dialogue"
+                ref={dialogueRef}
+                onScroll={() => {
+                  const el = dialogueRef.current;
+                  if (el)
+                    atBottomRef.current =
+                      el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+                }}
+              >
                 {history.length === 0 ? (
                   <div className="opc-message" data-role="assistant">
                     <small className="opc-messageLabel">
@@ -749,14 +828,9 @@ export function OfficePanel({
                     ◉
                   </div>
                 ) : (
-                  <video
-                    key={chatAnimation}
+                  <LoopVideo
                     className="opc-chatActorVideo"
                     src={chatAnimation}
-                    muted
-                    playsInline
-                    autoPlay
-                    loop
                     onError={() => setChatAnimationFailed(true)}
                   />
                 )}

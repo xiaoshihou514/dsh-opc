@@ -48,7 +48,7 @@ export interface CharacterManifest {
   /** Derived at read time from characters/<name>/<state>-<variant>.webm. */
   characters?: Record<
     string,
-    { states: Partial<Record<SessionState, readonly string[]>> }
+    { states: Partial<Record<SessionState | "submit", readonly string[]>> }
   >;
   modelCharacters: Record<string, string>;
   fallbackCharacter: string;

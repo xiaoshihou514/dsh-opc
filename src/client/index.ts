@@ -42,6 +42,14 @@ export function apply(ctx: ClientContext): void {
   // this feature on the public runtime contract instead of that render-store
   // inference path.
   const sessionRuntime = ctx.sessions as unknown as ISessions
+  // Pet deep-link: on the root path (not /office), ?opc-session=<id> selects
+  // that session so the native conversation opens on it. Clean up the param.
+  const bootQuery = new URLSearchParams(window.location.search)
+  const bootSessionId = bootQuery.get('opc-session')
+  if (bootSessionId !== null && !bootQuery.has('office')) {
+    sessionRuntime.open(bootSessionId as never)
+    window.history.replaceState(null, '', window.location.pathname)
+  }
   const modelDirectories = (ctx as unknown as { modelDirectories: ModelDirectories }).modelDirectories
   // The registry-global archived session id set lives on the workspaces list
   // snapshot. Expose only the id list so the office panel can drop archived

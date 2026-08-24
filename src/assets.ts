@@ -20,7 +20,7 @@ const RELEASE_REPOSITORY =
   process.env.DSH_OPC_ASSET_REPOSITORY ?? "xiaoshihou514/dsh-opc";
 const RELEASE_ASSET = "dsh-opc-assets.tar.gz";
 const ANIMATION_FILE =
-  /^(idle|thinking|reading|writing|await|error)-(\d+)\.webm$/;
+  /^(idle|thinking|reading|writing|await|error|submit)-(\d+)\.webm$/;
 
 export function assetCacheDir(): string {
   return join(process.env.DSH_HOME?.trim() || join(homedir(), ".dsh"), "opc");
@@ -83,7 +83,7 @@ export async function readManifest(
     for (const directory of directories) {
       if (!directory.isDirectory()) continue;
       const variants = new Map<
-        SessionState,
+        SessionState | "submit",
         Array<{ file: string; index: number }>
       >();
       for (const file of await readdir(
@@ -91,12 +91,14 @@ export async function readManifest(
       )) {
         const match = ANIMATION_FILE.exec(file);
         if (match === null) continue;
-        const state = match[1] as SessionState;
+        const state = match[1] as SessionState | "submit";
         const entries = variants.get(state) ?? [];
         entries.push({ file, index: Number(match[2]) });
         variants.set(state, entries);
       }
-      const states: Partial<Record<SessionState, readonly string[]>> = {};
+      const states: Partial<
+        Record<SessionState | "submit", readonly string[]>
+      > = {};
       for (const [state, files] of variants) {
         states[state] = files
           .sort(

@@ -162,6 +162,26 @@ fn open_dsh(app: AppHandle) -> Result<(), String> {
     tauri_plugin_opener::open_url(&app.state::<PetState>().url, None::<&str>)
         .map_err(|e| e.to_string())
 }
+/// Open the native DSH conversation for one session: the web client resolves
+/// `?opc-session=<id>` on the root path and selects that session.
+#[tauri::command]
+fn open_session(app: AppHandle, session_id: String) -> Result<(), String> {
+    let base = app.state::<PetState>().url;
+    let url = format!("{base}/?opc-session={}", urlencode(&session_id));
+    tauri_plugin_opener::open_url(&url, None::<&str>).map_err(|e| e.to_string())
+}
+fn urlencode(value: &str) -> String {
+    let mut out = String::new();
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(byte as char)
+            }
+            _ => out.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    out
+}
 fn main() {
     let url = configured_url().unwrap_or_else(|error| {
         eprintln!("{error}");
@@ -181,7 +201,7 @@ fn main() {
             tauri::async_runtime::spawn(poll(app.handle().clone()));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, manifest, open_dsh])
+        .invoke_handler(tauri::generate_handler![snapshot, manifest, open_dsh, open_session])
         .run(tauri::generate_context!())
         .expect("Tauri application error")
 }

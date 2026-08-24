@@ -1,8 +1,6 @@
 :root {
   color: #f5f3ff;
-  font:
-    13px system-ui,
-    sans-serif;
+  font: 13px system-ui, sans-serif;
 }
 * {
   box-sizing: border-box;
@@ -16,53 +14,92 @@ body,
   background: transparent;
   overflow: hidden;
 }
+
+/* Pet body: just the animated character, no text/chrome. Interaction lives on
+   the TV notice. */
 .pet {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: end;
-  width: 100%;
-  height: 100%;
-  padding: 10px;
-  text-align: center;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
   text-shadow: 0 2px 5px #000;
 }
-video,
-.fallback {
-  width: 150px;
-  height: 150px;
+.pet video,
+.pet .fallback {
+  width: 210px;
+  height: 210px;
   object-fit: contain;
 }
-.fallback {
+.pet .fallback {
   display: grid;
   place-items: center;
-  font-size: 80px;
+  font-size: 90px;
   color: #c3e9ff;
 }
-strong {
-  font-size: 14px;
-}
-span {
-  color: #b9d7ff;
-  margin-top: 2px;
-}
-small {
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #d5d3dc;
-}
-button {
-  margin-top: 6px;
-  padding: 3px 9px;
-  color: inherit;
-  border: 1px solid #ffffff44;
-  border-radius: 8px;
-  background: #20202ccc;
+
+/* Retro-CRT TV notice: colour screen by notice kind, scanlines, click to open
+   the relevant session. */
+.tv {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  width: 170px;
   cursor: pointer;
+  animation: tv-pop 0.3s ease;
 }
-.await span,
-.error span {
-  color: #ff9a86;
+.tv-screen {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 6px;
+  border: 6px solid #37373b;
+  background: #0d0d0f;
+  box-shadow: inset 0 0 18px #0008, 0 4px 10px #000a;
+  overflow: hidden;
+}
+.tv-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--tv-color, #444);
+  opacity: 0.38;
+}
+.tv-scan {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0 2px,
+    #00000022 2px 3px
+  );
+}
+.tv-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 9px;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+  text-shadow: 0 1px 2px #000;
+}
+.tv-base {
+  width: 42%;
+  height: 8px;
+  margin: 0 auto;
+  background: #2c2c2c;
+  border-radius: 0 0 4px 4px;
+}
+@keyframes tv-pop {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }

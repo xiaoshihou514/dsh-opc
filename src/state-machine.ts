@@ -42,7 +42,10 @@ export function stateOf(facts: SessionFacts): SessionState {
   return facts.running ? "thinking" : "idle";
 }
 
-export function project(facts: SessionFacts): SessionView {
+export function project(
+  facts: SessionFacts,
+  archivedIds?: ReadonlySet<string>,
+): SessionView {
   const state = stateOf(facts);
   return {
     id: facts.id,
@@ -51,6 +54,7 @@ export function project(facts: SessionFacts): SessionView {
     character: facts.character,
     state,
     stateSince: facts.stateSince,
+    ...(archivedIds?.has(facts.id) ? { archived: true } : {}),
     ...(facts.workspace === undefined ? {} : { workspace: facts.workspace }),
     ...(facts.runningSince === undefined
       ? {}

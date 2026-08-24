@@ -31,6 +31,8 @@ export interface SessionView {
   activeTool?: string;
   approval?: ApprovalView;
   error?: ErrorView;
+  /** True when the session is in the host's archived-session registry set. */
+  archived?: boolean;
 }
 
 export interface Snapshot {

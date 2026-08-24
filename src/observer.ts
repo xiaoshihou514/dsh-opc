@@ -19,7 +19,21 @@ import {
 } from "./assets.ts";
 
 export const name = "dsh-opc-observer";
-export const inject = ["agents", "webServer"];
+export const inject = ["agents", "webServer", "workspaceRegistry"];
+
+/** Registry-global archived-session ids, read from the host workspace service.
+ *  Guarded against an uninitialised registry state (archivedSessionIds getter
+ *  requires the storage state) so snapshot construction never throws. */
+function archivedIdsOf(ctx: Context): ReadonlySet<string> {
+  try {
+    const registry = (ctx as unknown as {
+      workspaceRegistry?: { archivedSessionIds?: readonly string[] };
+    }).workspaceRegistry;
+    return new Set(registry?.archivedSessionIds ?? []);
+  } catch {
+    return new Set();
+  }
+}
 
 const DEFAULT_MANIFEST: CharacterManifest = {
   apiVersion: API_VERSION,
@@ -111,7 +125,9 @@ export function apply(ctx: Context): void {
       revision,
       serverTime: Date.now(),
       longRunningThresholdsMs: LONG_RUNNING_THRESHOLDS_MS,
-      sessions: [...sessions.values()].map(project),
+      sessions: [...sessions.values()].map((facts) =>
+        project(facts, archivedIdsOf(ctx)),
+      ),
     }),
     subscribe: (listener: () => void): (() => void) => {
       listeners.add(listener);
@@ -169,13 +185,18 @@ export function apply(ctx: Context): void {
       ctx.on("agent/request-error", async (request, next) => {
         const action = await next();
         const facts = lookup(request.agent);
-        // A recovery owner explicitly retried the request; only terminal failures
-        // deserve the office error animation and a desktop notification.
-        if (facts !== undefined && action?.kind !== "retry") {
-          facts.error = {
-            id: `${request.turn}:${request.step}:${request.failure.code}`,
-            summary: request.failure.message,
-          };
+        if (facts !== undefined) {
+          // A recovery owner explicitly retried the request; only terminal failures
+          // deserve the office error animation and a desktop notification. A retry
+          // means the session recovered, so clear any held error.
+          if (action?.kind !== "retry") {
+            facts.error = {
+              id: `${request.turn}:${request.step}:${request.failure.code}`,
+              summary: request.failure.message,
+            };
+          } else {
+            delete facts.error;
+          }
           facts.stateSince = Date.now();
           publish();
         }
@@ -226,6 +247,7 @@ export function apply(ctx: Context): void {
               id: `${execution.callId}:${Date.now()}`,
               summary: result.error.message,
             };
+          else delete facts.error;
           return result;
         } catch (error) {
           facts.error = {

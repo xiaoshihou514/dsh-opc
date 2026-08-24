@@ -42,8 +42,23 @@ function ensureStyle(): void {
   const style = document.createElement("style");
   style.id = "dsh-opc-style";
   style.textContent =
-    OFFICE_CSS + GAME_CSS + SHADER_CSS + ANCHOR_CSS + CHAT_CSS + FULLSCREEN_CSS + CONVERSATION_NODE_CSS + UI_POLISH_CSS + FINAL_UI_CSS;
+    OFFICE_CSS + GAME_CSS + SHADER_CSS + ANCHOR_CSS + CHAT_CSS + FULLSCREEN_CSS + CONVERSATION_NODE_CSS + UI_POLISH_CSS + FINAL_UI_CSS +
+    `.opc-worker[data-row="1"] .opc-monitor{top:0;bottom:auto;left:50%;transform:translate(-50%,-100%)}`;
   document.head.append(style);
+}
+
+// 空闲会话超过这个时长没有任何消息往来，就从办公室界面隐藏（工位显示为空闲）。
+// 判断基准取“最后活动时间”（会话列表行的 updatedAt，回退到快照的 stateSince），
+// 正在运行/待授权/出错的会话始终保留显示。
+const OFFICE_INACTIVE_MS = 24 * 60 * 60 * 1000;
+
+function shouldShowInOffice(
+  session: SessionView,
+  lastActivity: number | undefined,
+): boolean {
+  if (session.state !== "idle") return true;
+  if (lastActivity === undefined) return true;
+  return Date.now() - lastActivity <= OFFICE_INACTIVE_MS;
 }
 
 const LABELS: Record<SessionState, string> = {
@@ -54,6 +69,9 @@ const LABELS: Record<SessionState, string> = {
   await: "等待授权",
   error: "发生错误",
 };
+
+// 工位按“最后一次对话/活动时间”倒序展示：最近有往来的会话排在最前面，
+// 这样正在运行、刚被操作过的会话自然会进入可见工位。
 export function animationUrl(
   character: string,
   state: SessionState,
@@ -423,6 +441,7 @@ export function OfficePanel({
   onSendPrompt,
   onConversation,
   sessionList,
+  archivedSessionIds,
   modelSelection,
 }: {
   onSendPrompt(sessionId: string, text: string): Promise<void>;
@@ -430,12 +449,16 @@ export function OfficePanel({
     sessionId: string,
   ): ObservableSnapshot<{ nodes: readonly ConversationNode[] }> | undefined;
   sessionList: ObservableSnapshot<OfficeSessionList>;
+  archivedSessionIds?: ObservableSnapshot<readonly string[]> | undefined;
   modelSelection(sessionId: string): ObservableSnapshot<OfficeModelState>;
 }): JSX.Element {
   ensureStyle();
   const [store] = useState(() => new SessionStore());
   const [snapshot, setSnapshot] = useState(store.snapshot);
   const [catalog, setCatalog] = useState(() => sessionList.getSnapshot());
+  const [archivedIds, setArchivedIds] = useState<ReadonlySet<string>>(
+    () => new Set(archivedSessionIds?.getSnapshot() ?? []),
+  );
   const [models, setModels] = useState<Record<string, string>>({});
   const [manifest, setManifest] = useState<CharacterManifest>();
   const [selectedId, setSelectedId] = useState<string>();
@@ -461,6 +484,12 @@ export function OfficePanel({
     update();
     return sessionList.subscribe(update);
   }, [sessionList]);
+  useEffect(() => {
+    if (archivedSessionIds === undefined) return;
+    const update = (): void => setArchivedIds(new Set(archivedSessionIds.getSnapshot()));
+    update();
+    return archivedSessionIds.subscribe(update);
+  }, [archivedSessionIds]);
   useEffect(() => {
     const stops: Array<() => void> = [];
     const updateModel = (sessionId: string, source: ObservableSnapshot<OfficeModelState>): void => {
@@ -498,44 +527,52 @@ export function OfficePanel({
   }, []);
   useEffect(loadManifest, []);
   const liveSessions = snapshot?.sessions ?? [];
-  const liveById = new Map(liveSessions.map((session) => [session.id, session]));
-  const orderedCatalogIds = catalog.current === undefined
-    ? catalog.ids
-    : [catalog.current, ...catalog.ids.filter((id) => id !== catalog.current)];
-  const catalogSessions = orderedCatalogIds.map((id, index): SessionView => {
-    const row = catalog.byId[id];
-    const live = liveById.get(id);
-    const model = models[id] ?? live?.model ?? "default";
-    const title =
+  // 以 host 快照为权威会话源：归档标记由 observer 打在快照里，过滤才可靠。
+  // 客户端会话列表(catalog)只用来补可读标题、模型名和工作区，不再决定工位集合，
+  // 否则 catalog 里未归档/快照外的会话会把归档后仍凑满 6 个工位。
+  const lastActivityById = new Map<string, number>();
+  const registerLastActivity = (id: string, value: number | undefined): void => {
+    if (value !== undefined) lastActivityById.set(id, value);
+  };
+  for (const session of liveSessions)
+    registerLastActivity(
+      session.id,
+      catalog.byId[session.id]?.updatedAt ?? session.stateSince,
+    );
+  const sessionTitle = (session: SessionView, index: number): string => {
+    const row = catalog.byId[session.id];
+    return (
       row?.title?.trim() ||
       row?.displayTitle?.trim() ||
-      (row?.blank ? "新会话" : `会话 ${index + 1}`);
-    return {
-      id,
-      title,
-      model,
-      character:
-        manifest === undefined
-          ? (live?.character ?? "fallback")
-          : characterForModel(model, manifest),
-      state: live?.state ?? (row?.running ? "thinking" : "idle"),
-      stateSince: live?.stateSince ?? row?.updatedAt ?? Date.now(),
-      ...(row?.cwd === undefined ? {} : { workspace: row.cwd }),
-      ...(live?.runningSince === undefined
-        ? {}
-        : { runningSince: live.runningSince }),
-      ...(live?.activeTool === undefined
-        ? {}
-        : { activeTool: live.activeTool }),
-      ...(live?.approval === undefined ? {} : { approval: live.approval }),
-      ...(live?.error === undefined ? {} : { error: live.error }),
-    };
-  });
-  const catalogIds = new Set(orderedCatalogIds);
-  const sessions = [
-    ...catalogSessions,
-    ...liveSessions.filter((session) => !catalogIds.has(session.id)),
-  ];
+      (row?.blank ? "新会话" : `会话 ${index + 1}`)
+    );
+  };
+  const sessions = liveSessions
+    .map((session, index): SessionView => {
+      const model = models[session.id] ?? session.model ?? "default";
+      const row = catalog.byId[session.id];
+      return {
+        ...session,
+        title: sessionTitle(session, index),
+        model,
+        character:
+          manifest === undefined
+            ? (session.character ?? "fallback")
+            : characterForModel(model, manifest),
+        ...(row?.cwd === undefined ? {} : { workspace: row.cwd }),
+      };
+    })
+    .filter(
+      (session) =>
+        !session.archived &&
+        !archivedIds.has(session.id) &&
+        shouldShowInOffice(session, lastActivityById.get(session.id)),
+    )
+    .sort((left, right) => {
+      const lastLeft = lastActivityById.get(left.id) ?? 0;
+      const lastRight = lastActivityById.get(right.id) ?? 0;
+      return lastRight - lastLeft;
+    });
   const visibleSessions = sessions.slice(0, 6);
   const selected = sessions.find((session) => session.id === selectedId);
   const selectedCharacter =

@@ -1,6 +1,11 @@
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
-import type { ClientContext, ISessions, ObservableSnapshot } from '@deepseek-ai/dsh-client-runtime/client'
+import type {
+  ClientContext,
+  IWorkspaces,
+  ISessions,
+  ObservableSnapshot,
+} from '@deepseek-ai/dsh-client-runtime/client'
 import { OfficeTrigger } from './OfficeTrigger.tsx'
 
 export interface OfficeSessionList {
@@ -29,7 +34,7 @@ interface ModelDirectories {
 
 // Cordis guards service access at runtime; `sessions` is required for the
 // selected character's prompt channel, not merely as a package dependency.
-export const inject = ['slots', 'sessions', 'modelDirectories']
+export const inject = ['slots', 'sessions', 'modelDirectories', 'workspaces']
 
 export function apply(ctx: ClientContext): void {
   // The slot-runtime's store namespace also uses the word "sessions". Keep
@@ -37,6 +42,14 @@ export function apply(ctx: ClientContext): void {
   // inference path.
   const sessionRuntime = ctx.sessions as unknown as ISessions
   const modelDirectories = (ctx as unknown as { modelDirectories: ModelDirectories }).modelDirectories
+  // The registry-global archived session id set lives on the workspaces list
+  // snapshot. Expose only the id list so the office panel can drop archived
+  // conversations without depending on the whole workspace projection.
+  const workspaces = (ctx as unknown as { workspaces: IWorkspaces }).workspaces
+  const archivedSessionIds: ObservableSnapshot<readonly string[]> = {
+    getSnapshot: () => workspaces.list.getSnapshot().archivedSessionIds,
+    subscribe: (listener) => workspaces.list.subscribe(listener),
+  }
   // The sidebar footer is a horizontal action row. Other plugins can place a
   // full-width item there, which leaves subsequent controls clipped. The shell
   // overlay is explicitly additive and keeps this entry independent of sidebar
@@ -57,6 +70,7 @@ export function apply(ctx: ClientContext): void {
         return sessionRuntime.binding(sessionId as never)?.session
       },
       sessionList: sessionRuntime.list as ObservableSnapshot<OfficeSessionList>,
+      archivedSessionIds,
       modelSelection: (sessionId: string) => {
         const directory = modelDirectories.directoryFor(sessionId)
         void directory.load().catch(() => undefined)

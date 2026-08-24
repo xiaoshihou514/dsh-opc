@@ -4,6 +4,7 @@
   "modelCharacters": {
     "deepseek-v4-pro": "算算",
     "deepseek-v4-flash": "嘟嘟",
+    "deepseek-v4-flash-vision-exp": "嘟嘟",
     "gpt-5.6": "小白龙",
     "GLM-5.2": "小狐狸",
     "GLM-5.3": "小狐狸"

@@ -21,6 +21,7 @@ export function OfficeTrigger({
   onSendPrompt,
   onConversation,
   sessionList,
+  archivedSessionIds,
   modelSelection,
 }: {
   onSendPrompt(sessionId: string, text: string): Promise<void>;
@@ -28,6 +29,7 @@ export function OfficeTrigger({
     sessionId: string,
   ): ObservableSnapshot<{ nodes: readonly ConversationNode[] }> | undefined;
   sessionList: ObservableSnapshot<OfficeSessionList>;
+  archivedSessionIds?: ObservableSnapshot<readonly string[]> | undefined;
   modelSelection(sessionId: string): ObservableSnapshot<OfficeModelState>;
 }): JSX.Element {
   if (isOfficeTestPath()) return <OfficeTestPage />;
@@ -36,6 +38,7 @@ export function OfficeTrigger({
       onSendPrompt={onSendPrompt}
       onConversation={onConversation}
       sessionList={sessionList}
+      archivedSessionIds={archivedSessionIds}
       modelSelection={modelSelection}
     />
   );
@@ -45,6 +48,7 @@ function OfficeLauncher({
   onSendPrompt,
   onConversation,
   sessionList,
+  archivedSessionIds,
   modelSelection,
 }: {
   onSendPrompt(sessionId: string, text: string): Promise<void>;
@@ -52,6 +56,7 @@ function OfficeLauncher({
     sessionId: string,
   ): ObservableSnapshot<{ nodes: readonly ConversationNode[] }> | undefined;
   sessionList: ObservableSnapshot<OfficeSessionList>;
+  archivedSessionIds?: ObservableSnapshot<readonly string[]> | undefined;
   modelSelection(sessionId: string): ObservableSnapshot<OfficeModelState>;
 }): JSX.Element {
   const [open, setOpen] = useState(false);
@@ -111,6 +116,7 @@ function OfficeLauncher({
             onSendPrompt={onSendPrompt}
             onConversation={onConversation}
             sessionList={sessionList}
+            archivedSessionIds={archivedSessionIds}
             modelSelection={modelSelection}
           />
         </div>

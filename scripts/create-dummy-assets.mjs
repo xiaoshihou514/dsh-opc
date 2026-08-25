@@ -18,17 +18,17 @@ for (const character of characters) {
     await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', `color=c=0x${colors[state]}:s=160x160:d=1`, '-vf', `drawtext=text='${character} ${state} ${variant}':fontcolor=white:fontsize=13:x=8:y=72`, '-an', '-c:v', 'libvpx-vp9', '-crf', '40', '-b:v', '0', file])
   }
 }
-// The pet manager is its own character with idle/submit loops (several variants).
-const petCharacter = 'pet-manager'
+// The desktop pet lives in its own assets/pet/ bucket (idle/submit loops).
+const petDir = new URL('../pet/', root)
 const petStates = [
   { state: 'idle', color: '4f6272', variants: [0, 1] },
   { state: 'submit', color: '4169e1', variants: [0, 1] },
 ]
-await mkdir(new URL(`${petCharacter}/`, root), { recursive: true })
+await mkdir(petDir, { recursive: true })
 for (const { state, color, variants } of petStates) {
   for (const variant of variants) {
-    const file = join(root.pathname, petCharacter, `${state}-${variant}.webm`)
-    await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', `color=c=0x${color}:s=160x160:d=1`, '-vf', `drawtext=text='${petCharacter} ${state} ${variant}':fontcolor=white:fontsize=13:x=8:y=72`, '-an', '-c:v', 'libvpx-vp9', '-crf', '40', '-b:v', '0', file])
+    const file = join(petDir.pathname, `${state}-${variant}.webm`)
+    await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-f', 'lavfi', '-i', `color=c=0x${color}:s=160x160:d=1`, '-vf', `drawtext=text='pet ${state} ${variant}':fontcolor=white:fontsize=13:x=8:y=72`, '-an', '-c:v', 'libvpx-vp9', '-crf', '40', '-b:v', '0', file])
   }
 }
 await writeFile(new URL('../assets/.dummy-assets', import.meta.url), 'Generated locally; release art replaces these files.\n')

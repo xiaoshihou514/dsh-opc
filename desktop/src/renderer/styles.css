@@ -1,6 +1,8 @@
 :root {
   color: #f5f3ff;
-  font: 13px system-ui, sans-serif;
+  font:
+    13px system-ui,
+    sans-serif;
 }
 * {
   box-sizing: border-box;
@@ -55,7 +57,9 @@ body,
   border-radius: 6px;
   border: 6px solid #37373b;
   background: #0d0d0f;
-  box-shadow: inset 0 0 18px #0008, 0 4px 10px #000a;
+  box-shadow:
+    inset 0 0 18px #0008,
+    0 4px 10px #000a;
   overflow: hidden;
 }
 .tv-screen::before {

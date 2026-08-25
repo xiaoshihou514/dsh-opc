@@ -26,9 +26,11 @@ export const inject = ["agents", "webServer", "workspaceRegistry"];
  *  requires the storage state) so snapshot construction never throws. */
 function archivedIdsOf(ctx: Context): ReadonlySet<string> {
   try {
-    const registry = (ctx as unknown as {
-      workspaceRegistry?: { archivedSessionIds?: readonly string[] };
-    }).workspaceRegistry;
+    const registry = (
+      ctx as unknown as {
+        workspaceRegistry?: { archivedSessionIds?: readonly string[] };
+      }
+    ).workspaceRegistry;
     return new Set(registry?.archivedSessionIds ?? []);
   } catch {
     return new Set();

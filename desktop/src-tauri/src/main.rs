@@ -162,6 +162,12 @@ fn open_dsh(app: AppHandle) -> Result<(), String> {
     tauri_plugin_opener::open_url(&app.state::<PetState>().url, None::<&str>)
         .map_err(|e| e.to_string())
 }
+/// The configured DSH base URL, so the renderer can build absolute asset URLs
+/// (its own origin is the Tauri webview, not the DSH HTTP server).
+#[tauri::command]
+fn base_url(state: State<'_, PetState>) -> Result<String, String> {
+    Ok(state.url.clone())
+}
 /// Open the native DSH conversation for one session: the web client resolves
 /// `?opc-session=<id>` on the root path and selects that session.
 #[tauri::command]
@@ -201,7 +207,13 @@ fn main() {
             tauri::async_runtime::spawn(poll(app.handle().clone()));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![snapshot, manifest, open_dsh, open_session])
+        .invoke_handler(tauri::generate_handler![
+            snapshot,
+            manifest,
+            open_dsh,
+            open_session,
+            base_url
+        ])
         .run(tauri::generate_context!())
         .expect("Tauri application error")
 }

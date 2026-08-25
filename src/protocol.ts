@@ -1,12 +1,7 @@
 export const API_VERSION = 1 as const;
 
 export type SessionState =
-  | "idle"
-  | "thinking"
-  | "reading"
-  | "writing"
-  | "await"
-  | "error";
+  "idle" | "thinking" | "reading" | "writing" | "await" | "error";
 
 export interface ApprovalView {
   id: string;
@@ -48,8 +43,10 @@ export interface CharacterManifest {
   /** Derived at read time from characters/<name>/<state>-<variant>.webm. */
   characters?: Record<
     string,
-    { states: Partial<Record<SessionState | "submit", readonly string[]>> }
+    { states: Partial<Record<SessionState, readonly string[]>> }
   >;
+  /** The desktop pet's own idle/submit loop, kept separate from session characters. */
+  pet?: Partial<Record<"idle" | "submit", readonly string[]>>;
   modelCharacters: Record<string, string>;
   fallbackCharacter: string;
 }

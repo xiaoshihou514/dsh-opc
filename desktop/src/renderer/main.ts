@@ -19,11 +19,12 @@ interface Snapshot { serverTime: number; sessions: Session[] }
 interface Manifest {
   fallbackCharacter: string
   characters?: Record<string, { states: Partial<Record<string, string[]>> }>
+  pet?: Partial<Record<'idle' | 'submit', string[]>>
 }
 
-const PET_ID = 'pet-manager'
 const app = document.querySelector<HTMLElement>('#app')!
 let manifest: Manifest | undefined
+let baseUrl = 'http://127.0.0.1:3080'
 let lastSnapshotAt = 0
 let prev = new Map<string, State>()
 let currentPet: PetState = 'idle'
@@ -44,14 +45,14 @@ function escape(value: string): string {
   return element.innerHTML
 }
 function petFiles(state: PetState): string[] {
-  return manifest?.characters?.[PET_ID]?.states?.[state] ?? []
+  return manifest?.pet?.[state] ?? []
 }
 function pick(state: PetState): string {
   const files = petFiles(state)
   const chosen = files[Math.floor(Math.random() * files.length)]
-  return chosen === undefined
-    ? `/dsh-opc/v1/assets/characters/${PET_ID}/${state}-0.webm`
-    : `/dsh-opc/v1/assets/characters/${PET_ID}/${encodeURIComponent(chosen)}`
+  const base = baseUrl.replace(/\/$/, "")
+  const name = chosen === undefined ? `${state}-0.webm` : chosen
+  return `${base}/dsh-opc/v1/assets/pet/${encodeURIComponent(name)}`
 }
 
 /** Highest-priority thing that needs the user's attention right now. */
@@ -143,6 +144,12 @@ setInterval(() => {
 }, 5_000)
 
 void listen<Snapshot>('opc:snapshot', (event) => render(event.payload))
+void invoke<string>('base_url')
+  .then((value) => {
+    baseUrl = value.trim().replace(/\/$/, '')
+    if (currentSrc !== '') currentSrc = pick(currentPet)
+  })
+  .catch(() => {})
 void invoke<Manifest>('manifest')
   .then((value) => {
     manifest = value

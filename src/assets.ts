@@ -20,7 +20,9 @@ const RELEASE_REPOSITORY =
   process.env.DSH_OPC_ASSET_REPOSITORY ?? "xiaoshihou514/dsh-opc";
 const RELEASE_ASSET = "dsh-opc-assets.tar.gz";
 const ANIMATION_FILE =
-  /^(idle|thinking|reading|writing|await|error|submit)-(\d+)\.webm$/;
+  /^(idle|thinking|reading|writing|await|error)-(\d+)\.webm$/;
+/** Desktop-pet loops live in pet/<state>-<variant>.webm, separate from session characters. */
+const PET_ANIMATION_FILE = /^(idle|submit)-(\d+)\.webm$/;
 
 export function assetCacheDir(): string {
   return join(process.env.DSH_HOME?.trim() || join(homedir(), ".dsh"), "opc");
@@ -83,7 +85,7 @@ export async function readManifest(
     for (const directory of directories) {
       if (!directory.isDirectory()) continue;
       const variants = new Map<
-        SessionState | "submit",
+        SessionState,
         Array<{ file: string; index: number }>
       >();
       for (const file of await readdir(
@@ -91,14 +93,12 @@ export async function readManifest(
       )) {
         const match = ANIMATION_FILE.exec(file);
         if (match === null) continue;
-        const state = match[1] as SessionState | "submit";
+        const state = match[1] as SessionState;
         const entries = variants.get(state) ?? [];
         entries.push({ file, index: Number(match[2]) });
         variants.set(state, entries);
       }
-      const states: Partial<
-        Record<SessionState | "submit", readonly string[]>
-      > = {};
+      const states: Partial<Record<SessionState, readonly string[]>> = {};
       for (const [state, files] of variants) {
         states[state] = files
           .sort(
@@ -110,7 +110,32 @@ export async function readManifest(
       if (Object.keys(states).length > 0)
         characters[directory.name] = { states };
     }
-    return { ...base, characters };
+    // The pet loop lives in pet/<state>-<variant>.webm and is surfaced under the
+    // manifest's own `pet` field, never inside `characters`.
+    const pet: NonNullable<CharacterManifest["pet"]> = {};
+    try {
+      const petVariants = new Map<
+        "idle" | "submit",
+        Array<{ file: string; index: number }>
+      >();
+      for (const file of await readdir(join(root, "pet"))) {
+        const match = PET_ANIMATION_FILE.exec(file);
+        if (match === null) continue;
+        const state = match[1] as "idle" | "submit";
+        const entries = petVariants.get(state) ?? [];
+        entries.push({ file, index: Number(match[2]) });
+        petVariants.set(state, entries);
+      }
+      for (const [state, files] of petVariants) {
+        pet[state] = files
+          .sort(
+            (left, right) =>
+              left.index - right.index || left.file.localeCompare(right.file),
+          )
+          .map(({ file }) => file);
+      }
+    } catch {}
+    return { ...base, characters, pet };
   } catch {
     return undefined;
   }

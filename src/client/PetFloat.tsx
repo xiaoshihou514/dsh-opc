@@ -54,7 +54,9 @@ export function PetFloat({
   }, []);
 
   const currentId = catalog.current;
-  const current = snapshot?.sessions.find((session) => session.id === currentId);
+  const current = snapshot?.sessions.find(
+    (session) => session.id === currentId,
+  );
   if (current === undefined) return null;
   // Resolve the character with the same front-end manifest logic the office
   // uses, so the pet and the worker card always agree.
@@ -90,4 +92,5 @@ export function PetFloat({
 }
 
 /** Style for the pet loop video (kept here so consumers only need the component). */
-export const PET_STYLE = `@media(max-width:760px){.opc-pet-video{width:128px;height:128px}}` as const;
+export const PET_STYLE =
+  `@media(max-width:760px){.opc-pet-video{width:128px;height:128px}}` as const;

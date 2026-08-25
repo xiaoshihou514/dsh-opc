@@ -42,7 +42,15 @@ function ensureStyle(): void {
   const style = document.createElement("style");
   style.id = "dsh-opc-style";
   style.textContent =
-    OFFICE_CSS + GAME_CSS + SHADER_CSS + ANCHOR_CSS + CHAT_CSS + FULLSCREEN_CSS + CONVERSATION_NODE_CSS + UI_POLISH_CSS + FINAL_UI_CSS +
+    OFFICE_CSS +
+    GAME_CSS +
+    SHADER_CSS +
+    ANCHOR_CSS +
+    CHAT_CSS +
+    FULLSCREEN_CSS +
+    CONVERSATION_NODE_CSS +
+    UI_POLISH_CSS +
+    FINAL_UI_CSS +
     `.opc-worker[data-row="1"] .opc-monitor{top:0;bottom:auto;left:50%;transform:translate(-50%,-100%)}` +
     // 聊天面板：角色动画放到左侧列，对话在右侧；对话雷达半透明不遮住后面。
     `.opc-commsMain{grid-template-columns:clamp(250px,23vw,380px) minmax(0,1fr)}.opc-chatActor{order:-1}.opc-callNav{background:rgba(8,13,21,.55);backdrop-filter:blur(3px)}@media(max-width:760px){.opc-commsMain{grid-template-columns:1fr}}`;
@@ -110,9 +118,10 @@ export function sessionCharacter(
   manifest: CharacterManifest | undefined,
 ): string {
   if (manifest === undefined) return session.character;
-  const mapped = manifest.characters?.[session.character] === undefined
-    ? characterForModel(session.model, manifest)
-    : session.character;
+  const mapped =
+    manifest.characters?.[session.character] === undefined
+      ? characterForModel(session.model, manifest)
+      : session.character;
   return characterName(mapped, manifest);
 }
 
@@ -196,8 +205,7 @@ function Worker({
     setFailed(false);
     setSource(animationUrl(character, session.state, manifest));
   }, [session.id, session.state, session.stateSince, character, manifest]);
-  const attention =
-    session.state === "await" || session.state === "error";
+  const attention = session.state === "await" || session.state === "error";
   return (
     <button
       type="button"
@@ -379,16 +387,10 @@ function ConversationEntry({
             );
           }
           if (block.kind === "tool-call") {
-            if (
-              hideSuccessfulTools &&
-              successfulToolCallIds.has(block.callId)
-            )
+            if (hideSuccessfulTools && successfulToolCallIds.has(block.callId))
               return null;
             return (
-              <details
-                className="opc-disclosure"
-                key={index}
-              >
+              <details className="opc-disclosure" key={index}>
                 <summary>{block.name || "工具"} · 调用详情</summary>
                 <pre className="opc-disclosureBody">
                   {block.argsRaw || "无参数"}
@@ -444,11 +446,16 @@ function conversationPointLabel(node: ConversationNode): string {
   }
   if (node.kind === "assistant") {
     const text = node.blocks.find(
-      (block): block is Extract<(typeof node.blocks)[number], { kind: "text" }> =>
+      (
+        block,
+      ): block is Extract<(typeof node.blocks)[number], { kind: "text" }> =>
         block.kind === "text" && block.text.trim() !== "",
     );
     const tool = node.blocks.find((block) => block.kind === "tool-call");
-    return text?.text.trim() || (tool?.kind === "tool-call" ? `调用 ${tool.name || "工具"}` : "助手回复");
+    return (
+      text?.text.trim() ||
+      (tool?.kind === "tool-call" ? `调用 ${tool.name || "工具"}` : "助手回复")
+    );
   }
   if (node.kind === "tool-result")
     return `${node.call?.name ?? "工具"} · ${node.isError ? "失败" : "完成"}`;
@@ -547,22 +554,32 @@ export function OfficePanel({
   }, [sessionList]);
   useEffect(() => {
     if (archivedSessionIds === undefined) return;
-    const update = (): void => setArchivedIds(new Set(archivedSessionIds.getSnapshot()));
+    const update = (): void =>
+      setArchivedIds(new Set(archivedSessionIds.getSnapshot()));
     update();
     return archivedSessionIds.subscribe(update);
   }, [archivedSessionIds]);
   useEffect(() => {
     const stops: Array<() => void> = [];
-    const updateModel = (sessionId: string, source: ObservableSnapshot<OfficeModelState>): void => {
+    const updateModel = (
+      sessionId: string,
+      source: ObservableSnapshot<OfficeModelState>,
+    ): void => {
       const model = source.getSnapshot().current?.model;
       if (model === undefined) return;
       setModels((current) =>
-        current[sessionId] === model ? current : { ...current, [sessionId]: model },
+        current[sessionId] === model
+          ? current
+          : { ...current, [sessionId]: model },
       );
     };
-    const orderedIds = catalog.current === undefined
-      ? catalog.ids
-      : [catalog.current, ...catalog.ids.filter((id) => id !== catalog.current)];
+    const orderedIds =
+      catalog.current === undefined
+        ? catalog.ids
+        : [
+            catalog.current,
+            ...catalog.ids.filter((id) => id !== catalog.current),
+          ];
     for (const sessionId of orderedIds.slice(0, 6)) {
       try {
         const source = modelSelection(sessionId);
@@ -592,7 +609,10 @@ export function OfficePanel({
   // 客户端会话列表(catalog)只用来补可读标题、模型名和工作区，不再决定工位集合，
   // 否则 catalog 里未归档/快照外的会话会把归档后仍凑满 6 个工位。
   const lastActivityById = new Map<string, number>();
-  const registerLastActivity = (id: string, value: number | undefined): void => {
+  const registerLastActivity = (
+    id: string,
+    value: number | undefined,
+  ): void => {
     if (value !== undefined) lastActivityById.set(id, value);
   };
   for (const session of liveSessions)
@@ -637,9 +657,7 @@ export function OfficePanel({
   const visibleSessions = sessions.slice(0, 6);
   const selected = sessions.find((session) => session.id === selectedId);
   const selectedCharacter =
-    selected === undefined
-      ? undefined
-      : sessionCharacter(selected, manifest);
+    selected === undefined ? undefined : sessionCharacter(selected, manifest);
   const successfulToolCallIds = useMemo(
     () =>
       new Set(
@@ -659,7 +677,11 @@ export function OfficePanel({
     () =>
       selected === undefined
         ? undefined
-        : animationUrl(selectedCharacter ?? selected.character, selected.state, manifest),
+        : animationUrl(
+            selectedCharacter ?? selected.character,
+            selected.state,
+            manifest,
+          ),
     [
       selected?.id,
       selected?.character,
@@ -812,9 +834,7 @@ export function OfficePanel({
                     <small className="opc-messageLabel">
                       {selectedCharacter} · {LABELS[selected.state]}
                     </small>
-                    {historyBlank
-                      ? "暂无记录。"
-                      : "正在加载对话，请稍候…"}
+                    {historyBlank ? "暂无记录。" : "正在加载对话，请稍候…"}
                   </div>
                 ) : (
                   history.map((node) => (
@@ -870,9 +890,7 @@ export function OfficePanel({
                 onJump={(seq) => {
                   setActiveConversationSeq(seq);
                   document
-                    .getElementById(
-                      `opc-node-${String(seq).replace(".", "-")}`,
-                    )
+                    .getElementById(`opc-node-${String(seq).replace(".", "-")}`)
                     ?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}
               />

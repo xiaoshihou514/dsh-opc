@@ -50,6 +50,8 @@ describe("office state machine", () => {
     expect(classifyTool("edit")).toBe("writing");
     expect(classifyTool("str_replace")).toBe("writing");
     expect(classifyTool("str_replace_editor")).toBe("writing");
+    expect(classifyTool("functions.edit")).toBe("writing");
+    expect(classifyTool("fs/str_replace_editor")).toBe("writing");
     expect(classifyTool("grep")).toBe("other");
     expect(classifyTool("read_image")).toBe("other");
     expect(classifyTool("view_image")).toBe("other");

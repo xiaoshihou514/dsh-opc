@@ -4,7 +4,7 @@ import type { ObservableSnapshot } from "@deepseek-ai/dsh-client-runtime/client"
 import { SessionStore } from "./session-store.ts";
 import { LoopVideo, animationUrl, sessionCharacter } from "./OfficePanel.tsx";
 import type { CharacterManifest } from "../protocol.ts";
-import type { OfficeSessionList } from "./index.ts";
+import type { OfficeModelState, OfficeSessionList } from "./index.ts";
 
 const LABELS = {
   idle: "待命",
@@ -23,9 +23,11 @@ const LABELS = {
  */
 export function PetFloat({
   sessionList,
+  modelSelection,
   onOpen,
 }: {
   sessionList: ObservableSnapshot<OfficeSessionList>;
+  modelSelection(sessionId: string): ObservableSnapshot<OfficeModelState>;
   onOpen(sessionId: string): void;
 }): JSX.Element | null {
   // The office overview (/office or ?office=1) already shows the characters;
@@ -39,6 +41,7 @@ export function PetFloat({
   const [snapshot, setSnapshot] = useState(store.snapshot);
   const [manifest, setManifest] = useState<CharacterManifest>();
   const [catalog, setCatalog] = useState(() => sessionList.getSnapshot());
+  const [selectedModel, setSelectedModel] = useState<string>();
 
   useEffect(() => {
     if (isOffice) return;
@@ -55,6 +58,20 @@ export function PetFloat({
     return sessionList.subscribe(update);
   }, [sessionList]);
   useEffect(() => {
+    if (isOffice || catalog.current === undefined) return;
+    let directory: ObservableSnapshot<OfficeModelState>;
+    try {
+      directory = modelSelection(catalog.current);
+    } catch {
+      setSelectedModel(undefined);
+      return;
+    }
+    const update = (): void =>
+      setSelectedModel(directory.getSnapshot().current?.model);
+    update();
+    return directory.subscribe(update);
+  }, [catalog.current, isOffice, modelSelection]);
+  useEffect(() => {
     if (isOffice) return;
     void fetch("/dsh-opc/v1/assets/manifest.json", { cache: "no-store" })
       .then((response) => response.json())
@@ -69,7 +86,8 @@ export function PetFloat({
   if (isOffice || current === undefined) return null;
   // Resolve the character with the same front-end manifest logic the office
   // uses, so the pet and the worker card always agree.
-  const character = sessionCharacter(current, manifest);
+  const model = current.model || selectedModel || "default";
+  const character = sessionCharacter({ ...current, model }, manifest);
   const src = animationUrl(character, current.state, manifest);
   const label = LABELS[current.state] ?? current.state;
 

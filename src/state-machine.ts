@@ -34,7 +34,10 @@ const WRITE_TOOLS = new Set([
 export function classifyTool(
   name: string,
 ): "reading" | "writing" | "other" {
-  return WRITE_TOOLS.has(name.toLowerCase()) ? "writing" : "other";
+  // Some transports prefix the model-facing tool name (for example
+  // `functions.edit`); classify the final tool segment, not the route prefix.
+  const tool = name.trim().toLowerCase().split(/[.:/]/).pop() ?? "";
+  return WRITE_TOOLS.has(tool) ? "writing" : "other";
 }
 
 export function stateOf(facts: SessionFacts): SessionState {

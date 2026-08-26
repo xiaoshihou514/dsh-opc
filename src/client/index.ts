@@ -94,7 +94,12 @@ export function apply(ctx: ClientContext): void {
     // character animation lives there, following the host's current session.
     yield ctx.slots.register({ name: 'shell.overlay', id: 'dsh-opc-pet', order: 21, inject: () => ({
       sessionList: sessionRuntime.list as ObservableSnapshot<OfficeSessionList>,
-      onOpen: (sessionId: string) => sessionRuntime.open(sessionId as never),
+      modelSelection: (sessionId: string) => {
+         const directory = modelDirectories.directoryFor(sessionId)
+         void directory.load().catch(() => undefined)
+         return directory.store
+       },
+       onOpen: (sessionId: string) => sessionRuntime.open(sessionId as never),
     }) }, PetFloat)
   })
 }

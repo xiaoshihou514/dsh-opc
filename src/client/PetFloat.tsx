@@ -57,7 +57,13 @@ export function PetFloat({
   const current = snapshot?.sessions.find(
     (session) => session.id === currentId,
   );
-  if (current === undefined) return null;
+  // The office overview (/office or ?office=1) already shows the characters;
+  // the floating pet is only for the native conversation, so hide it there.
+  const isOffice =
+    window.location.pathname === "/office" ||
+    window.location.pathname === "/:/office" ||
+    new URLSearchParams(window.location.search).has("office");
+  if (isOffice || current === undefined) return null;
   // Resolve the character with the same front-end manifest logic the office
   // uses, so the pet and the worker card always agree.
   const character = sessionCharacter(current, manifest);

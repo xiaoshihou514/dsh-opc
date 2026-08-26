@@ -53,7 +53,9 @@ function ensureStyle(): void {
     FINAL_UI_CSS +
     `.opc-worker[data-row="1"] .opc-monitor{top:0;bottom:auto;left:50%;transform:translate(-50%,-100%)}` +
     // 聊天面板：角色动画放到左侧列，对话在右侧；对话雷达半透明不遮住后面。
-    `.opc-commsMain{grid-template-columns:clamp(250px,23vw,380px) minmax(0,1fr)}.opc-chatActor{order:-1}.opc-callNav{background:rgba(8,13,21,.55);backdrop-filter:blur(3px)}@media(max-width:760px){.opc-commsMain{grid-template-columns:1fr}}`;
+    `.opc-commsMain{grid-template-columns:clamp(250px,23vw,380px) minmax(0,1fr)}.opc-chatActor{order:-1}.opc-callNav{background:rgba(8,13,21,.55);backdrop-filter:blur(3px)}@media(max-width:760px){.opc-commsMain{grid-template-columns:1fr}}` +
+    // 运行中工位的"正在跑"呼吸脉冲：名牌边框发光，让等待型工具一眼可辨。
+    `.opc-monitor{transition:border-color .3s,box-shadow .3s}.opc-worker[data-running] .opc-monitor{border-color:#ffce6c;animation:opc-run-pulse 1.8s ease-in-out infinite}.opc-worker[data-running] .opc-monitor small{color:#ffd9a0}@keyframes opc-run-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,206,108,.35)}50%{box-shadow:0 0 0 7px rgba(255,206,108,0)}}`;
   document.head.append(style);
 }
 
@@ -79,6 +81,16 @@ const LABELS: Record<SessionState, string> = {
   await: "等待授权",
   error: "发生错误",
 };
+
+/** Compact elapsed time, e.g. 12s / 3m 41s / 1h 05m. */
+function formatDuration(start: number, now: number): string {
+  const sec = Math.max(0, Math.floor((now - start) / 1000));
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ${sec % 60}s`;
+  const hr = Math.floor(min / 60);
+  return `${hr}h ${String(min % 60).padStart(2, "0")}m`;
+}
 
 // 工位按“最后一次对话/活动时间”倒序展示：最近有往来的会话排在最前面，
 // 这样正在运行、刚被操作过的会话自然会进入可见工位。
@@ -118,11 +130,10 @@ export function sessionCharacter(
   manifest: CharacterManifest | undefined,
 ): string {
   if (manifest === undefined) return session.character;
-  const mapped =
-    manifest.characters?.[session.character] === undefined
-      ? characterForModel(session.model, manifest)
-      : session.character;
-  return characterName(mapped, manifest);
+  // Resolve from the front-end manifest by model, so the shown character tracks
+  // the actual model even when the host snapshot carried a stale character
+  // (e.g. fallback before a model mapping was added).
+  return characterName(characterForModel(session.model, manifest), manifest);
 }
 
 /**
@@ -137,17 +148,27 @@ export function LoopVideo({
   onError,
   className,
   style,
+  lazy,
 }: {
   src: string;
   onError?: () => void;
   className?: string;
   style?: CSSProperties;
+  lazy?: boolean;
 }): JSX.Element {
-  const [ready, setReady] = useState(false);
+  // Lazy videos hold off mounting their src briefly so the first frame of the
+  // office only decodes the front row, then back-row clips stream in. This
+  // avoids decoding every worker WebM at once on open.
+  const [active, setActive] = useState(!lazy);
   const ref = useRef<HTMLVideoElement>(null);
   const seeded = useRef(false);
   useEffect(() => {
-    setReady(false);
+    if (!lazy || active) return;
+    const timer = window.setTimeout(() => setActive(true), 400);
+    return () => window.clearTimeout(timer);
+  }, [lazy, active]);
+  useEffect(() => {
+    if (!active) return;
     seeded.current = false;
     const video = ref.current;
     if (video === null) return;
@@ -157,7 +178,6 @@ export function LoopVideo({
       const duration = video.duration;
       if (Number.isFinite(duration) && duration > 0)
         video.currentTime = Math.random() * duration;
-      setReady(true);
     };
     video.addEventListener("loadeddata", seed);
     video.addEventListener("canplay", seed);
@@ -165,18 +185,19 @@ export function LoopVideo({
       video.removeEventListener("loadeddata", seed);
       video.removeEventListener("canplay", seed);
     };
-  }, [src]);
+  }, [src, active]);
   return (
     <video
       ref={ref}
       className={className}
-      src={src}
+      src={active ? src : undefined}
       muted
       playsInline
       autoPlay
       loop
       onError={onError}
-      style={{ opacity: ready ? 1 : 0, ...style }}
+      preload={active ? "auto" : "none"}
+      style={style}
     />
   );
 }
@@ -206,12 +227,24 @@ function Worker({
     setSource(animationUrl(character, session.state, manifest));
   }, [session.id, session.state, session.stateSince, character, manifest]);
   const attention = session.state === "await" || session.state === "error";
+  const running = session.runningSince !== undefined;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+  const elapsed =
+    running && session.runningSince !== undefined
+      ? formatDuration(session.runningSince, now)
+      : undefined;
   return (
     <button
       type="button"
       className={`opc-worker opc-${session.state}`}
       data-row={row}
       data-selected={selected || undefined}
+      data-running={running || undefined}
       style={seatStyle}
       onClick={onSelect}
       aria-pressed={selected}
@@ -219,7 +252,11 @@ function Worker({
     >
       <div className="opc-monitor">
         <span>{session.title}</span>
-        <small>{session.model}</small>
+        <small>
+          {running && session.runningSince !== undefined
+            ? `${session.activeTool ?? "运行中"} · ${elapsed}`
+            : LABELS[session.state]}
+        </small>
       </div>
       {failed ? (
         <div className="opc-fallback" role="img" aria-label="角色动画不可用">
@@ -229,14 +266,12 @@ function Worker({
         <LoopVideo
           className="opc-video"
           src={source}
+          lazy={row === 1}
           onError={() => setFailed(true)}
         />
       )}
       <strong>{character}</strong>
       <span className="opc-state">{LABELS[session.state]}</span>
-      {session.activeTool !== undefined ? (
-        <small>{session.activeTool}</small>
-      ) : null}
       {attention ? <span className="opc-attention">!</span> : null}
     </button>
   );

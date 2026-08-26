@@ -31,14 +31,45 @@ const READ_TOOLS = new Set([
   "ls",
 ]);
 
-export function classifyTool(name: string): "reading" | "writing" {
-  return READ_TOOLS.has(name.toLowerCase()) ? "reading" : "writing";
+// Tools that run and wait for a result (bash, jobs, commands…). While one of
+// these is active the agent is waiting, not writing — so the office shows the
+// thinking animation rather than "writing".
+const EXEC_TOOLS = new Set([
+  "bash",
+  "job_output",
+  "job",
+  "run",
+  "exec",
+  "execute",
+  "command",
+  "task",
+  "build",
+  "install",
+  "npm",
+  "pnpm",
+  "cargo",
+  "script",
+  "shell",
+]);
+
+export function classifyTool(
+  name: string,
+): "reading" | "writing" | "other" {
+  const lower = name.toLowerCase();
+  if (READ_TOOLS.has(lower)) return "reading";
+  if (EXEC_TOOLS.has(lower)) return "other";
+  return "writing";
 }
 
 export function stateOf(facts: SessionFacts): SessionState {
   if (facts.approval !== undefined) return "await";
   if (facts.error !== undefined) return "error";
-  if (facts.activeTool !== undefined) return classifyTool(facts.activeTool);
+  if (facts.activeTool !== undefined) {
+    const kind = classifyTool(facts.activeTool);
+    if (kind === "reading") return "reading";
+    if (kind === "writing") return "writing";
+    // "other" (exec/wait) falls through to the running/thinking branch.
+  }
   return facts.running ? "thinking" : "idle";
 }
 

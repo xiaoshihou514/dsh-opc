@@ -33,11 +33,17 @@ describe("office state machine", () => {
     ).toBe("error");
     expect(stateOf({ ...base, activeTool: "read" })).toBe("reading");
     expect(stateOf({ ...base, activeTool: "edit" })).toBe("writing");
+    // Exec/wait tools (bash, jobs) show the thinking animation, not writing.
+    expect(stateOf({ ...base, activeTool: "bash" })).toBe("thinking");
+    expect(stateOf({ ...base, activeTool: "job_output" })).toBe("thinking");
     expect(stateOf(base)).toBe("thinking");
     expect(stateOf({ ...base, running: false })).toBe("idle");
   });
-  it("classifies unknown tools conservatively as writing", () => {
+  it("classifies read/exec/unknown tools", () => {
     expect(classifyTool("grep")).toBe("reading");
+    expect(classifyTool("bash")).toBe("other");
+    expect(classifyTool("job_output")).toBe("other");
+    expect(classifyTool("write")).toBe("writing");
     expect(classifyTool("unfamiliar_tool")).toBe("writing");
   });
 });

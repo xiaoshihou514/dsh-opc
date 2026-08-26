@@ -39,6 +39,14 @@ pet-check:
 pack-assets:
   pnpm assets:pack
 
+# Upload dsh-opc-assets.tar.gz to the given tag's GitHub release (creates it if missing).
+upload-assets tag:
+  @test -f dsh-opc-assets.tar.gz || { echo "dsh-opc-assets.tar.gz missing; run: just pack-assets"; exit 1; }
+  gh release view "{{tag}}" >/dev/null 2>&1 \
+    && gh release upload "{{tag}}" dsh-opc-assets.tar.gz --clobber \
+    || gh release create "{{tag}}" dsh-opc-assets.tar.gz --title "{{tag}}" --generate-notes
+  @echo "Uploaded dsh-opc-assets.tar.gz to release {{tag}}"
+
 format:
     prettier -w **/*.md **/*.js **/*.ts **/*.tsx **/*.css **/*.yaml **/*.json
     cd desktop/src-tauri/ && cargo fmt

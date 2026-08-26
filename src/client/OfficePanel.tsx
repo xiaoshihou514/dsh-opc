@@ -148,27 +148,15 @@ export function LoopVideo({
   onError,
   className,
   style,
-  lazy,
 }: {
   src: string;
   onError?: () => void;
   className?: string;
   style?: CSSProperties;
-  lazy?: boolean;
 }): JSX.Element {
-  // Lazy videos hold off mounting their src briefly so the first frame of the
-  // office only decodes the front row, then back-row clips stream in. This
-  // avoids decoding every worker WebM at once on open.
-  const [active, setActive] = useState(!lazy);
   const ref = useRef<HTMLVideoElement>(null);
   const seeded = useRef(false);
   useEffect(() => {
-    if (!lazy || active) return;
-    const timer = window.setTimeout(() => setActive(true), 400);
-    return () => window.clearTimeout(timer);
-  }, [lazy, active]);
-  useEffect(() => {
-    if (!active) return;
     seeded.current = false;
     const video = ref.current;
     if (video === null) return;
@@ -185,18 +173,18 @@ export function LoopVideo({
       video.removeEventListener("loadeddata", seed);
       video.removeEventListener("canplay", seed);
     };
-  }, [src, active]);
+  }, [src]);
   return (
     <video
       ref={ref}
       className={className}
-      src={active ? src : undefined}
+      src={src}
       muted
       playsInline
       autoPlay
       loop
       onError={onError}
-      preload={active ? "auto" : "none"}
+      preload="auto"
       style={style}
     />
   );
@@ -266,7 +254,6 @@ function Worker({
         <LoopVideo
           className="opc-video"
           src={source}
-          lazy={row === 1}
           onError={() => setFailed(true)}
         />
       )}

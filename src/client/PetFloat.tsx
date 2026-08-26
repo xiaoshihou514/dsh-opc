@@ -28,41 +28,44 @@ export function PetFloat({
   sessionList: ObservableSnapshot<OfficeSessionList>;
   onOpen(sessionId: string): void;
 }): JSX.Element | null {
+  // The office overview (/office or ?office=1) already shows the characters;
+  // the floating pet is only for the native conversation, so skip its network
+  // work entirely there (no SSE, no manifest fetch, no re-renders).
+  const isOffice =
+    window.location.pathname === "/office" ||
+    window.location.pathname === "/:/office" ||
+    new URLSearchParams(window.location.search).has("office");
   const [store] = useState(() => new SessionStore());
   const [snapshot, setSnapshot] = useState(store.snapshot);
   const [manifest, setManifest] = useState<CharacterManifest>();
   const [catalog, setCatalog] = useState(() => sessionList.getSnapshot());
 
   useEffect(() => {
+    if (isOffice) return;
     const stop = store.subscribe(() => setSnapshot(store.snapshot));
     store.start();
     return () => {
       stop();
       store.stop();
     };
-  }, [store]);
+  }, [store, isOffice]);
   useEffect(() => {
     const update = (): void => setCatalog(sessionList.getSnapshot());
     update();
     return sessionList.subscribe(update);
   }, [sessionList]);
   useEffect(() => {
+    if (isOffice) return;
     void fetch("/dsh-opc/v1/assets/manifest.json", { cache: "no-store" })
       .then((response) => response.json())
       .then(setManifest)
       .catch(() => {});
-  }, []);
+  }, [isOffice]);
 
   const currentId = catalog.current;
   const current = snapshot?.sessions.find(
     (session) => session.id === currentId,
   );
-  // The office overview (/office or ?office=1) already shows the characters;
-  // the floating pet is only for the native conversation, so hide it there.
-  const isOffice =
-    window.location.pathname === "/office" ||
-    window.location.pathname === "/:/office" ||
-    new URLSearchParams(window.location.search).has("office");
   if (isOffice || current === undefined) return null;
   // Resolve the character with the same front-end manifest logic the office
   // uses, so the pet and the worker card always agree.

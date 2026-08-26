@@ -31,19 +31,29 @@ describe("office state machine", () => {
         error: { id: "e", summary: "bad" },
       }),
     ).toBe("error");
-    expect(stateOf({ ...base, activeTool: "read" })).toBe("reading");
+    // Only file mutations show the writing animation.
     expect(stateOf({ ...base, activeTool: "edit" })).toBe("writing");
-    // Exec/wait tools (bash, jobs) show the thinking animation, not writing.
+    expect(stateOf({ ...base, activeTool: "write" })).toBe("writing");
+    expect(stateOf({ ...base, activeTool: "str_replace_editor" })).toBe(
+      "writing",
+    );
+    // Reads, image inspection, shell commands, and unknown tools show thinking.
+    expect(stateOf({ ...base, activeTool: "read" })).toBe("thinking");
+    expect(stateOf({ ...base, activeTool: "view_image" })).toBe("thinking");
     expect(stateOf({ ...base, activeTool: "bash" })).toBe("thinking");
     expect(stateOf({ ...base, activeTool: "job_output" })).toBe("thinking");
     expect(stateOf(base)).toBe("thinking");
     expect(stateOf({ ...base, running: false })).toBe("idle");
   });
-  it("classifies read/exec/unknown tools", () => {
-    expect(classifyTool("grep")).toBe("reading");
-    expect(classifyTool("bash")).toBe("other");
-    expect(classifyTool("job_output")).toBe("other");
+  it("classifies only file mutations as writing", () => {
     expect(classifyTool("write")).toBe("writing");
-    expect(classifyTool("unfamiliar_tool")).toBe("writing");
+    expect(classifyTool("edit")).toBe("writing");
+    expect(classifyTool("str_replace")).toBe("writing");
+    expect(classifyTool("str_replace_editor")).toBe("writing");
+    expect(classifyTool("grep")).toBe("other");
+    expect(classifyTool("read_image")).toBe("other");
+    expect(classifyTool("view_image")).toBe("other");
+    expect(classifyTool("bash")).toBe("other");
+    expect(classifyTool("unfamiliar_tool")).toBe("other");
   });
 });

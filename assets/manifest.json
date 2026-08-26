@@ -5,9 +5,22 @@
     "deepseek-v4-pro": "算算",
     "deepseek-v4-flash": "嘟嘟",
     "deepseek-v4-flash-vision-exp": "嘟嘟",
-    "deepseek-ai/DeepSeek-V4-Flash-0731": "嘟嘟",
-    "gpt-5.6": "小白龙",
-    "GLM-5.2": "小狐狸",
-    "GLM-5.3": "小狐狸"
+    "deepseek-v4-flash-free": "嘟嘟",
+    "gpt-5.6-luna": "小白龙",
+    "gpt-5.6-terra": "小白龙",
+    "gpt-5.6-sol": "小白龙",
+    "x-preview-f-free": "小狐狸",
+    "glm-5.3": "小狐狸",
+    "glm-5.2": "小狐狸",
+    "glm-5.1": "小狐狸",
+    "glm-5": "小狐狸",
+    "glm-5-turbo": "小狐狸",
+    "glm-4.7": "小狐狸",
+    "glm-4.7-flash": "小狐狸",
+    "glm-4.7-flashx": "小狐狸",
+    "glm-4.6": "小狐狸",
+    "glm-4.5": "小狐狸",
+    "glm-4.5-air": "小狐狸",
+    "glm-4.5-flash": "小狐狸"
   }
 }

@@ -19,46 +19,22 @@ export interface SessionFacts {
   stateSince: number;
 }
 
-const READ_TOOLS = new Set([
-  "read",
-  "glob",
-  "grep",
-  "search",
-  "webfetch",
-  "browse",
-  "fetch",
-  "list",
-  "ls",
-]);
-
-// Tools that run and wait for a result (bash, jobs, commands…). While one of
-// these is active the agent is waiting, not writing — so the office shows the
-// thinking animation rather than "writing".
-const EXEC_TOOLS = new Set([
-  "bash",
-  "job_output",
-  "job",
-  "run",
-  "exec",
-  "execute",
-  "command",
-  "task",
-  "build",
-  "install",
-  "npm",
-  "pnpm",
-  "cargo",
-  "script",
-  "shell",
+// Only tools whose primary purpose is mutating files are classified as writing.
+// Everything else — including reads, image inspection, shell commands, and
+// unknown/plugin-provided tools — means the agent is waiting for a result and
+// uses the thinking animation. This is safer than treating every new tool as a
+// write operation.
+const WRITE_TOOLS = new Set([
+  "write",
+  "edit",
+  "str_replace",
+  "str_replace_editor",
 ]);
 
 export function classifyTool(
   name: string,
 ): "reading" | "writing" | "other" {
-  const lower = name.toLowerCase();
-  if (READ_TOOLS.has(lower)) return "reading";
-  if (EXEC_TOOLS.has(lower)) return "other";
-  return "writing";
+  return WRITE_TOOLS.has(name.toLowerCase()) ? "writing" : "other";
 }
 
 export function stateOf(facts: SessionFacts): SessionState {

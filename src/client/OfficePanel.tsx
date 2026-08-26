@@ -210,10 +210,25 @@ function Worker({
   const [source, setSource] = useState(() =>
     animationUrl(character, session.state, manifest),
   );
+  const [retriedSource, setRetriedSource] = useState<string>();
   useEffect(() => {
     setFailed(false);
+    setRetriedSource(undefined);
     setSource(animationUrl(character, session.state, manifest));
   }, [session.id, session.state, session.stateSince, character, manifest]);
+  const handleVideoError = (): void => {
+    if (retriedSource === source) {
+      setFailed(true);
+      return;
+    }
+    // Asset installation and browser decoding can race on the first request.
+    // Retry once with a cache-busting query before showing the permanent
+    // fallback marker for a genuinely unavailable clip.
+    const separator = source.includes("?") ? "&" : "?";
+    const retry = `${source}${separator}retry=${Date.now()}`;
+    setRetriedSource(source);
+    setSource(retry);
+  };
   const attention = session.state === "await" || session.state === "error";
   const running = session.runningSince !== undefined;
   const [now, setNow] = useState(() => Date.now());
@@ -254,7 +269,7 @@ function Worker({
         <LoopVideo
           className="opc-video"
           src={source}
-          onError={() => setFailed(true)}
+          onError={handleVideoError}
         />
       )}
       <strong>{character}</strong>

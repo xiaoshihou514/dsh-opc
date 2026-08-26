@@ -64,6 +64,22 @@ function median(values) {
   return sorted[Math.floor(sorted.length / 2)]
 }
 
+const keySamplePoints = [
+  // Original stable background points on the 720 px square clips.
+  { x: 344, y: 36 },
+  { x: 24, y: 220 },
+  { x: 664, y: 220 },
+  // Extra border points. The reading animations draw their magic-circle glow over
+  // the original three, so a bare median can lock onto the glow instead of the
+  // screen. Sampling widely and keeping only the most green-dominant samples
+  // below makes the key robust to props, bubbles, and that glow.
+  { x: 24, y: 36 },
+  { x: 664, y: 36 },
+  { x: 360, y: 80 },
+  { x: 24, y: 400 },
+  { x: 664, y: 400 },
+]
+
 async function averageCrop(input, crop) {
   const pixels = await capture('ffmpeg', [
     '-v', 'error', '-ss', '0.5', '-i', input, '-map', '0:v:0',
@@ -83,27 +99,36 @@ async function averageCrop(input, crop) {
 }
 
 async function backgroundKey(input) {
-  // These positions are source-background-only regions on the supplied 720 px
-  // square clips. Taking the per-channel median makes the key robust to a
-  // thought bubble or compression noise in any one sample.
-  const samples = await Promise.all([
-    averageCrop(input, { x: 344, y: 36 }),
-    averageCrop(input, { x: 24, y: 220 }),
-    averageCrop(input, { x: 664, y: 220 }),
-  ])
-  const rgb = [0, 1, 2].map(channel => median(samples.map(sample => sample[channel])))
+  const samples = []
+  for (const crop of keySamplePoints) {
+    try {
+      samples.push(await averageCrop(input, crop))
+    } catch {
+      // A point clipped outside a differently-sized source is simply not sampled.
+    }
+  }
+  if (samples.length === 0) {
+    throw new Error(`Could not sample any background region from ${input}`)
+  }
+  // The pure screen is always the most green-dominant material in frame; glow,
+  // shadows, and props rank lower. Keep the greener half and take its per-channel
+  // median so one bad sample cannot move the key.
+  const ranked = [...samples]
+    .map((rgb, index) => ({ rgb, dominance: rgb[1] - Math.max(rgb[0], rgb[2]), index }))
+    .sort((a, b) => b.dominance - a.dominance)
+  const kept = ranked.slice(0, Math.max(3, Math.ceil(ranked.length / 2)))
+  const rgb = [0, 1, 2].map(channel => median(kept.map(sample => sample.rgb[channel])))
   return rgb.map(component => component.toString(16).padStart(2, '0')).join('')
 }
 
 function filterFor(background) {
   // Both watermarks sit entirely on the green screen. Remove them before
   // keying. This deliberately has two separate passes: the first is a narrow
-  // whole-frame key that protects foreground props; the second is restricted
-  // to the floor beneath the desk and clears only strongly green shadow pixels.
-  // Keeping those jobs separate prevents grey-green laptop and table-leg
-  // highlights from being made transparent. The premultiply replaces RGB
-  // behind alpha=0 with black: thumbnailers that
-  // ignore WebM alpha therefore show black, never the source green.
+  // chroma key around the sampled screen color; the second removes any pixel
+  // whose green channel strongly dominates red and blue, where the screen's
+  // glow bleeds onto props or wraps the character. The premultiply replaces
+  // RGB behind alpha=0 with black: thumbnailers that ignore WebM alpha
+  // therefore show black, never the source green.
   return [
     // Keep the published character artifacts at their source resolution. This
     // makes the output reproducible at 720 × 720 regardless of UI seat size.
@@ -114,10 +139,11 @@ function filterFor(background) {
     // Pass 1: conservative background-only chroma key.
     `colorkey=0x${background}:0.11:0.01`,
     'format=rgba',
-    // Pass 2: source clips keep their floor shadow below y=510. Remove only
-    // pixels whose green channel is substantially stronger than both red and
-    // blue there; neutral table legs and the laptop remain fully opaque.
-    "geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(Y,510),alpha(X,Y),if(gt(g(X,Y),max(r(X,Y),b(X,Y))*1.35),0,alpha(X,Y)))'",
+    // Pass 2: green-dominant spill removal over the whole frame. The reading
+    // animations draw their magic-circle glow across the entire screen, and
+    // that glow (plus floor shadow below y=510) is green-screen bleed, not
+    // effect artwork: neutral table legs and the laptop stay fully opaque.
+    "geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(gt(g(X,Y),max(r(X,Y),b(X,Y))*1.35),0,alpha(X,Y))'",
     'premultiply=inplace=1',
     'format=yuva420p',
   ].join(',')

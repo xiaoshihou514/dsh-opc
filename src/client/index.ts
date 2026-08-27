@@ -99,7 +99,6 @@ export function apply(ctx: ClientContext): void {
          void directory.load().catch(() => undefined)
          return directory.store
        },
-       onOpen: (sessionId: string) => sessionRuntime.open(sessionId as never),
     }) }, PetFloat)
   })
 }

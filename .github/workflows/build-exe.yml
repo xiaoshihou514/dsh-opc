@@ -1,0 +1,57 @@
+name: build-windows-exe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+jobs:
+  windows-exe:
+    # Linux 上交叉编译 Windows（cargo-xwin 提供 MSVC 链接器），不占用 Windows 容器
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 配置 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 配置 Rust（含 Windows MSVC 目标）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: 安装 cargo-xwin（Windows 交叉链接器）
+        run: cargo install cargo-xwin --locked
+
+      - name: 安装交叉工具链（clang + lld + windres + mingw gcc + nsis + appindicator）
+        # cc-rs 在 windows-msvc 目标下用 clang-cl 编译 C 依赖（reqwest/rustls 的
+        # ring），cargo-xwin 也需要 lld-link 链接；tauri-winres 嵌入 .exe 图标/
+        # 清单需要 GNU windres（通过 RC 环境变量指定）；NSIS 安装包需要
+        # makensis；tray-icon 特性会让 tauri CLI 检测 appindicator 库（缺了 panic）
+        run: sudo apt-get update && sudo apt-get install -y clang lld binutils-mingw-w64-x86-64 gcc-mingw-w64-x86-64 nsis libayatana-appindicator3-dev
+
+      - name: 安装依赖
+        run: pnpm --dir desktop install --frozen-lockfile
+
+      - name: 交叉编译 Windows 安装包（NSIS）
+        # --runner cargo-xwin：tauri CLI 不会自动用 xwin 当链接器，必须显式指定；
+        # MSI 不支持在 Linux 主机上打包（tauri 跨平台限制），故只产出 NSIS
+        env:
+          RC: x86_64-w64-mingw32-windres
+        run: pnpm --dir desktop exec tauri build --target x86_64-pc-windows-msvc --runner cargo-xwin --bundles nsis
+
+      - name: 上传 exe 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-opc-pet-windows
+          path: desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe

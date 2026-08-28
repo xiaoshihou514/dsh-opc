@@ -35,6 +35,11 @@ pet-check:
   pnpm --dir desktop check
   cargo check --manifest-path desktop/src-tauri/Cargo.toml
 
+# Cross-compile the Windows NSIS installer from Linux/WSL (cargo-xwin).
+# Requires the local llvm-local clang-19 toolchain (see llvm-local/extract).
+pet-exe:
+  cd desktop && PATH="/home/xiaoshihou/Playground/dsh/llvm-local/extract/usr/lib/llvm-19/bin:$$PATH" LD_LIBRARY_PATH="/home/xiaoshihou/Playground/dsh/llvm-local/extract/usr/lib/x86_64-linux-gnu:/home/xiaoshihou/Playground/dsh/llvm-local/extract/usr/lib/llvm-19/lib:$$LD_LIBRARY_PATH" RC=x86_64-w64-mingw32-windres pnpm exec tauri build --target x86_64-pc-windows-msvc --runner cargo-xwin --bundles nsis
+
 # Produce the WebM archive that a tagged CI release uploads; does not publish it.
 pack-assets:
   pnpm assets:pack

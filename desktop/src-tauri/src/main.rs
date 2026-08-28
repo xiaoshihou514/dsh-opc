@@ -172,7 +172,7 @@ fn base_url(state: State<'_, PetState>) -> Result<String, String> {
 /// `?opc-session=<id>` on the root path and selects that session.
 #[tauri::command]
 fn open_session(app: AppHandle, session_id: String) -> Result<(), String> {
-    let base = app.state::<PetState>().url;
+    let base = app.state::<PetState>().url.clone();
     let url = format!("{base}/?opc-session={}", urlencode(&session_id));
     tauri_plugin_opener::open_url(&url, None::<&str>).map_err(|e| e.to_string())
 }

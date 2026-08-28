@@ -18,14 +18,17 @@ body,
 }
 
 /* Pet body: just the animated character, no text/chrome. Interaction lives on
-   the TV notice. */
+   the TV notice. The whole pet is a native drag region so the frameless
+   window can be moved (data-tauri-drag-region on the element + CSS for
+   Linux/WebKit hosts); the TV notice opts out so it stays clickable. */
 .pet {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  pointer-events: none;
+  pointer-events: auto;
+  -webkit-app-region: drag;
   text-shadow: 0 2px 5px #000;
 }
 .pet video,
@@ -49,6 +52,7 @@ body,
   right: 8px;
   width: 170px;
   cursor: pointer;
+  -webkit-app-region: no-drag;
   animation: tv-pop 0.3s ease;
 }
 .tv-screen {
@@ -106,4 +110,34 @@ body,
     transform: scale(1);
     opacity: 1;
   }
+}
+
+/* Offline notice: DSH unreachable. Draggable like the pet so the frameless
+   window can still be moved while disconnected. */
+.offline {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px;
+  text-align: center;
+  color: #f5f3ff;
+  background: #10131c;
+  -webkit-app-region: drag;
+}
+.offline strong {
+  font-size: 14px;
+  color: #ffd9a0;
+}
+.offline span {
+  font-size: 11px;
+  opacity: 0.85;
+  overflow-wrap: anywhere;
+}
+.offline small {
+  font-size: 10px;
+  opacity: 0.6;
 }

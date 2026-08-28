@@ -26,6 +26,7 @@ const app = document.querySelector<HTMLElement>('#app')!
 let manifest: Manifest | undefined
 let baseUrl = 'http://127.0.0.1:3080'
 let lastSnapshotAt = 0
+let offline = false
 let prev = new Map<string, State>()
 let currentPet: PetState = 'idle'
 let currentSrc = ''
@@ -103,6 +104,7 @@ function tvHtml(e: TvEvent): string {
 }
 
 function render(snapshot: Snapshot): void {
+  offline = false
   lastSnapshotAt = Date.now()
   const sessions = snapshot.sessions ?? []
   const active = sessions.some((s) => s.state !== 'idle')
@@ -113,7 +115,7 @@ function render(snapshot: Snapshot): void {
   }
   const event = detectEvent(sessions)
   app.innerHTML = `
-    <section class="pet ${currentPet}">
+    <section class="pet ${currentPet}" data-tauri-drag-region>
       <video autoplay muted loop playsinline src="${currentSrc}"></video>
       <div class="fallback" hidden>◉</div>
     </section>
@@ -134,12 +136,29 @@ function render(snapshot: Snapshot): void {
   for (const id of [...prev.keys()]) if (!sessions.some((s) => s.id === id)) prev.delete(id)
 }
 
-// If DSH stops answering (or never connects), fall back to the idle pet.
+/** Full-window offline notice: DSH is unreachable, show the URL and retry. */
+function renderOffline(): void {
+  offline = true
+  const url = baseUrl.replace(/\/$/, '')
+  app.innerHTML = `
+    <section class="offline" data-tauri-drag-region>
+      <strong>无法连接 DSH</strong>
+      <span>${escape(url)}</span>
+      <small>请确认 DSH Web 服务已启动</small>
+    </section>
+  `
+}
+
+// Keep the pet alive while DSH answers; once it stops (or never connected),
+// show the offline notice and retry the snapshot invoke every few seconds.
 setInterval(() => {
-  if (Date.now() - lastSnapshotAt > 15_000 && currentPet !== 'idle') {
-    currentPet = 'idle'
-    currentSrc = pick('idle')
-    render({ serverTime: Date.now(), sessions: [] })
+  if (Date.now() - lastSnapshotAt > 15_000) {
+    if (!offline) renderOffline()
+    else if (currentPet !== 'idle') {
+      currentPet = 'idle'
+      currentSrc = pick('idle')
+    }
+    void invoke<Snapshot>('snapshot').then(render).catch(() => {})
   }
 }, 5_000)
 
@@ -148,6 +167,7 @@ void invoke<string>('base_url')
   .then((value) => {
     baseUrl = value.trim().replace(/\/$/, '')
     if (currentSrc !== '') currentSrc = pick(currentPet)
+    if (offline) renderOffline()
   })
   .catch(() => {})
 void invoke<Manifest>('manifest')
@@ -158,4 +178,4 @@ void invoke<Manifest>('manifest')
   .catch(() => {})
 void invoke<Snapshot>('snapshot')
   .then(render)
-  .catch(() => render({ serverTime: Date.now(), sessions: [] }))
+  .catch(renderOffline)

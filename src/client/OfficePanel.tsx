@@ -579,7 +579,9 @@ export function OfficePanel({
     return () => window.clearInterval(timer);
   }, []);
   const loadManifest = useCallback((): void => {
-    void fetch("/dsh-opc/v1/assets/manifest.json")
+    // The manifest is regenerated per request (local assets, no-store), so
+    // never let the browser reuse a cached copy when the mapping changes.
+    void fetch("/dsh-opc/v1/assets/manifest.json", { cache: "no-store" })
       .then((response) => response.json())
       .then(setManifest)
       .catch(() => {});

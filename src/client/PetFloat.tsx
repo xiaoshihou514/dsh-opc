@@ -106,7 +106,12 @@ export function PetFloat({
   // uses, so the pet and the worker card always agree.
   const model = selectedModel ?? current.model ?? "default";
   const character = sessionCharacter({ ...current, model }, manifest);
-  const src = animationUrl(character, current.state, manifest);
+  const src = animationUrl(
+    character,
+    current.state,
+    manifest,
+    manifest?.revision?.toString(),
+  );
   const label = LABELS[current.state] ?? current.state;
   const running = current.runningSince !== undefined;
 

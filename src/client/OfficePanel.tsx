@@ -55,7 +55,11 @@ function ensureStyle(): void {
     // 聊天面板：角色动画放到左侧列，对话在右侧；对话雷达半透明不遮住后面。
     `.opc-commsMain{grid-template-columns:clamp(250px,23vw,380px) minmax(0,1fr)}.opc-chatActor{order:-1}.opc-callNav{background:rgba(8,13,21,.55);backdrop-filter:blur(3px)}@media(max-width:760px){.opc-commsMain{grid-template-columns:1fr}}` +
     // 运行中工位的"正在跑"呼吸脉冲：名牌边框发光，让等待型工具一眼可辨。
-    `.opc-monitor{transition:border-color .3s,box-shadow .3s}.opc-worker[data-running] .opc-monitor{border-color:#ffce6c;animation:opc-run-pulse 1.8s ease-in-out infinite}.opc-worker[data-running] .opc-monitor small{color:#ffd9a0}@keyframes opc-run-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,206,108,.35)}50%{box-shadow:0 0 0 7px rgba(255,206,108,0)}}`;
+    `.opc-monitor{transition:border-color .3s,box-shadow .3s}.opc-worker[data-running] .opc-monitor{border-color:#ffce6c;animation:opc-run-pulse 1.8s ease-in-out infinite}.opc-worker[data-running] .opc-monitor small{color:#ffd9a0}@keyframes opc-run-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,206,108,.35)}50%{box-shadow:0 0 0 7px rgba(255,206,108,0)}}` +
+    // 素材手动刷新按钮：与返回按钮同排，长缓存素材靠 revision 参数强制重拉。
+    `.opc-refresh{border:2px solid #946c3a;background:#251d24;color:#f6dba0;padding:7px 14px;box-shadow:inset 0 0 0 2px #ffffff0d,2px 2px #080a11;cursor:pointer;font:700 13px inherit}.opc-refresh:hover{background:#3c2931}.opc-refresh:active{transform:translate(1px,1px)}` +
+    `.opc-exit + .opc-refresh{margin-left:8px}` +
+    `.opc-office:has(.opc-comms) .opc-refresh{position:fixed;z-index:61;top:18px;left:96px}`;
   document.head.append(style);
 }
 
@@ -193,6 +197,7 @@ export function LoopVideo({
 function Worker({
   session,
   manifest,
+  revision,
   selected,
   row,
   seatStyle,
@@ -200,6 +205,7 @@ function Worker({
 }: {
   session: SessionView;
   manifest: CharacterManifest | undefined;
+  revision: number | undefined;
   selected: boolean;
   row: number;
   seatStyle: CSSProperties;
@@ -208,14 +214,16 @@ function Worker({
   const character = sessionCharacter(session, manifest);
   const [failed, setFailed] = useState(false);
   const [source, setSource] = useState(() =>
-    animationUrl(character, session.state, manifest),
+    animationUrl(character, session.state, manifest, revision?.toString()),
   );
   const [hasRetried, setHasRetried] = useState(false);
   useEffect(() => {
     setFailed(false);
     setHasRetried(false);
-    setSource(animationUrl(character, session.state, manifest));
-  }, [session.id, session.state, session.stateSince, character, manifest]);
+    setSource(
+      animationUrl(character, session.state, manifest, revision?.toString()),
+    );
+  }, [session.id, session.state, session.stateSince, character, manifest, revision]);
   const handleVideoError = (): void => {
     if (hasRetried) {
       setFailed(true);
@@ -507,6 +515,9 @@ export function OfficePanel({
   );
   const [models, setModels] = useState<Record<string, string>>({});
   const [manifest, setManifest] = useState<CharacterManifest>();
+  // Bumped whenever the manifest reloads (asset mtime) or the user forces a
+  // refresh; appended to every clip/background URL to bust immutable caches.
+  const [assetRevision, setAssetRevision] = useState<number>();
   const [selectedId, setSelectedId] = useState<string>();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -583,10 +594,19 @@ export function OfficePanel({
     // never let the browser reuse a cached copy when the mapping changes.
     void fetch("/dsh-opc/v1/assets/manifest.json", { cache: "no-store" })
       .then((response) => response.json())
-      .then(setManifest)
+      .then((next: CharacterManifest) => {
+        setManifest(next);
+        setAssetRevision(next.revision ?? Date.now());
+      })
       .catch(() => {});
   }, []);
   useEffect(loadManifest, []);
+  const refreshAssets = useCallback((): void => {
+    // Force a full reload: re-fetch the manifest and bump the revision so
+    // every clip/background URL changes and bypasses the immutable cache.
+    loadManifest();
+    setAssetRevision(Date.now());
+  }, [loadManifest]);
   const liveSessions = snapshot?.sessions ?? [];
   // 以 host 快照为权威会话源：归档标记由 observer 打在快照里，过滤才可靠。
   // 客户端会话列表(catalog)只用来补可读标题、模型名和工作区，不再决定工位集合，
@@ -664,6 +684,7 @@ export function OfficePanel({
             selectedCharacter ?? selected.character,
             selected.state,
             manifest,
+            assetRevision?.toString(),
           ),
     [
       selected?.id,
@@ -672,6 +693,7 @@ export function OfficePanel({
       selected?.state,
       selected?.stateSince,
       manifest,
+      assetRevision,
     ],
   );
   useEffect(() => setChatAnimationFailed(false), [chatAnimation]);
@@ -741,13 +763,21 @@ export function OfficePanel({
       >
         ← 返回
       </button>
+      <button
+        type="button"
+        className="opc-refresh"
+        title="重新加载素材（改 assets/ 后使用）"
+        onClick={refreshAssets}
+      >
+        ⟳ 刷新素材
+      </button>
       <div className="opc-stage">
         <section
           className={`opc-floor opc-time-${officeTime}`}
           style={
             {
               ...OFFICE_SHADERS[officeTime].style,
-              "--opc-office-night": `url("${OFFICE_SHADERS[officeTime].background}")`,
+              "--opc-office-night": `url("${OFFICE_SHADERS[officeTime].background}?v=${assetRevision}")`,
             } as CSSProperties
           }
         >
@@ -772,6 +802,7 @@ export function OfficePanel({
                 key={session.id}
                 session={session}
                 manifest={manifest}
+                revision={assetRevision}
                 selected={selected?.id === session.id}
                 row={seat.row}
                 seatStyle={seatStyle}
@@ -842,7 +873,7 @@ export function OfficePanel({
                 style={
                   {
                     ...OFFICE_SHADERS[officeTime].style,
-                    "--opc-office-night": `url("${OFFICE_SHADERS[officeTime].background}")`,
+                    "--opc-office-night": `url("${OFFICE_SHADERS[officeTime].background}?v=${assetRevision}")`,
                   } as CSSProperties
                 }
               >

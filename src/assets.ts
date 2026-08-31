@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -32,6 +32,39 @@ export async function assetStatus(): Promise<AssetStatus> {
 /** All assets live in the plugin's own assets/ directory (local-only plugin). */
 export async function activeAssetDir(): Promise<string> {
   return bundledAssetDir();
+}
+
+/** Max modification time (ms) across every served asset file. The manifest
+ *  carries it so clients can bust immutable caches when any clip or
+ *  background changes, without disabling caching in the normal case. */
+async function computeRevision(root: string): Promise<number> {
+  let latest = 0;
+  const touch = async (path: string): Promise<void> => {
+    try {
+      latest = Math.max(latest, (await stat(path)).mtimeMs);
+    } catch {}
+  };
+  const scanWebm = async (dir: string): Promise<void> => {
+    try {
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) await scanWebm(path);
+        else if (entry.name.endsWith(".webm")) await touch(path);
+      }
+    } catch {}
+  };
+  await touch(join(root, "manifest.json"));
+  await scanWebm(join(root, "characters"));
+  await scanWebm(join(root, "pet"));
+  for (const name of [
+    "office-morning.png",
+    "office-noon.png",
+    "office-afternoon.png",
+    "office-evening.png",
+    "office-night.png",
+  ])
+    await touch(join(root, name));
+  return Math.floor(latest);
 }
 
 export async function readManifest(
@@ -98,7 +131,7 @@ export async function readManifest(
           .map(({ file }) => file);
       }
     } catch {}
-    return { ...base, characters, pet };
+    return { ...base, characters, pet, revision: await computeRevision(root) };
   } catch {
     return undefined;
   }
@@ -152,9 +185,13 @@ export async function serveAsset(
       : file.endsWith(".json")
         ? "application/json; charset=utf-8"
         : "image/png";
+    // The manifest is tiny and carries the asset revision, so it is always
+    // revalidated; clips/backgrounds keep the caller's (immutable) cache and
+    // are busted by the revision query on their URLs.
+    const noStore = file.endsWith("manifest.json");
     res.writeHead(200, {
       "content-type": type,
-      "cache-control": cacheControl,
+      "cache-control": noStore ? "no-store" : cacheControl,
     });
     if (req.method === "GET") res.end(content);
     else res.end();

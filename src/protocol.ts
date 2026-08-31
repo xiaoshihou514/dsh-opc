@@ -49,6 +49,8 @@ export interface CharacterManifest {
   pet?: Partial<Record<"idle" | "submit", readonly string[]>>;
   modelCharacters: Record<string, string>;
   fallbackCharacter: string;
+  /** Max mtime (ms) across all asset files; clients use it to bust caches. */
+  revision?: number;
 }
 
 export const LONG_RUNNING_THRESHOLDS_MS = [5, 10, 20, 30, 45, 60].map(

@@ -115,8 +115,14 @@ export function registerRoutes(
         kind: "prefix",
         path: "/dsh-opc/v1/assets",
         handler: async (req, res) => {
-          // Local-only assets: never cache, so edits to assets/ show up on reload.
-          await serveAsset(await activeAssetDir(), req, res, "no-store");
+          // Clips/backgrounds are immutable; the manifest always revalidates
+          // (serveAsset) and carries the revision that busts the former.
+          await serveAsset(
+            await activeAssetDir(),
+            req,
+            res,
+            "public, max-age=31536000, immutable",
+          );
         },
       }),
     "dsh-opc: asset route",

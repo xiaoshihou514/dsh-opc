@@ -39,7 +39,6 @@
     "test": "vitest run",
     "assets:dummy": "node scripts/create-dummy-assets.mjs",
     "assets:process": "node scripts/process-green-screen-assets.mjs",
-    "assets:pack": "node scripts/package-assets.mjs",
     "prepare": "pnpm run build"
   },
   "dsh": {

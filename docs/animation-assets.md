@@ -46,8 +46,10 @@ clip is served only when it is listed under a character and state.
    short (2–8 second) clips and modest dimensions so several workers can play
    at once.
 
-5. Add the filename to the correct state array, run `pnpm assets:pack`, and
-   test through `just dev-web` or a linked `dsh plugin --profile web add .`.
+5. Add the filename to the correct state array, then test through
+   `just dev-web` or a linked `dsh plugin --profile web add .`. Assets are
+   served from the local `assets/` directory with `no-store`, so edits show up
+   on reload without any packing step.
 
 `pnpm assets:dummy` creates ignored placeholder clips for UI development. It
 does not produce release-quality assets.

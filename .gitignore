@@ -7,6 +7,5 @@ desktop/src-tauri/gen/
 assets/characters/**/*.webm
 assets/characters/**/*.png
 !assets/characters/.gitkeep
-dsh-opc-assets.tar.gz
 assets/raw
 assets/pet

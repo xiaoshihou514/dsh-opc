@@ -40,18 +40,6 @@ pet-check:
 pet-exe:
   cd desktop && PATH="/home/xiaoshihou/Playground/dsh/llvm-local/extract/usr/lib/llvm-19/bin:$$PATH" LD_LIBRARY_PATH="/home/xiaoshihou/Playground/dsh/llvm-local/extract/usr/lib/x86_64-linux-gnu:/home/xiaoshihou/Playground/dsh/llvm-local/extract/usr/lib/llvm-19/lib:$$LD_LIBRARY_PATH" RC=x86_64-w64-mingw32-windres pnpm exec tauri build --target x86_64-pc-windows-msvc --runner cargo-xwin --bundles nsis
 
-# Produce the WebM archive that a tagged CI release uploads; does not publish it.
-pack-assets:
-  pnpm assets:pack
-
-# Upload dsh-opc-assets.tar.gz to the given tag's GitHub release (creates it if missing).
-upload-assets tag:
-  @test -f dsh-opc-assets.tar.gz || { echo "dsh-opc-assets.tar.gz missing; run: just pack-assets"; exit 1; }
-  gh release view "{{tag}}" >/dev/null 2>&1 \
-    && gh release upload "{{tag}}" dsh-opc-assets.tar.gz --clobber \
-    || gh release create "{{tag}}" dsh-opc-assets.tar.gz --title "{{tag}}" --generate-notes
-  @echo "Uploaded dsh-opc-assets.tar.gz to release {{tag}}"
-
 format:
     prettier -w **/*.md **/*.js **/*.ts **/*.tsx **/*.css **/*.yaml **/*.json
     cd desktop/src-tauri/ && cargo fmt

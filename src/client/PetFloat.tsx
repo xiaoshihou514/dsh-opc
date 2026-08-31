@@ -104,7 +104,7 @@ export function PetFloat({
   if (isOffice || current === undefined) return null;
   // Resolve the character with the same front-end manifest logic the office
   // uses, so the pet and the worker card always agree.
-  const model = current.model || selectedModel || "default";
+  const model = selectedModel ?? current.model ?? "default";
   const character = sessionCharacter({ ...current, model }, manifest);
   const src = animationUrl(character, current.state, manifest);
   const label = LABELS[current.state] ?? current.state;

@@ -3,9 +3,9 @@
   "fallbackCharacter": "打工人",
   "modelCharacters": {
     "deepseek-v4-pro": "算算",
-    "deepseek-v4-flash": "嘟嘟",
-    "deepseek-v4-flash-vision-exp": "嘟嘟",
-    "deepseek-v4-flash-free": "嘟嘟",
+    "deepseek-v4-flash": "算算",
+    "deepseek-v4-flash-vision-exp": "算算",
+    "deepseek-v4-flash-free": "算算",
     "gpt-5.6-luna": "小白龙",
     "gpt-5.6-terra": "小白龙",
     "gpt-5.6-sol": "小白龙",

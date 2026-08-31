@@ -301,62 +301,6 @@ function EmptySeat({
   );
 }
 
-interface AssetStatus {
-  directory: string;
-  installed: boolean;
-  localDev: boolean;
-  state: "local" | "idle" | "downloading" | "complete" | "error";
-  received: number;
-  total: number;
-  error?: string;
-}
-function AssetPrompt({ onInstalled }: { onInstalled(): void }) {
-  const [status, setStatus] = useState<AssetStatus>();
-  useEffect(() => {
-    const refresh = (): void => {
-      void fetch("/dsh-opc/v1/assets/status", { cache: "no-store" })
-        .then((response) => response.json())
-        .then((next: AssetStatus) => {
-          setStatus(next);
-          if (next.installed) onInstalled();
-        })
-        .catch(() => {});
-    };
-    refresh();
-    const timer = window.setInterval(refresh, 500);
-    return () => window.clearInterval(timer);
-  }, [onInstalled]);
-  if (status === undefined || status.localDev || status.installed) return null;
-  const percent =
-    status.total === 0
-      ? undefined
-      : Math.min(100, Math.round((status.received / status.total) * 100));
-  return (
-    <aside className="opc-assets" role="status">
-      <strong>
-        {status.state === "error" ? "角色动画下载失败。" : "正在下载角色动画…"}
-      </strong>
-      <span>
-        {status.state === "error" ? (
-          status.error
-        ) : (
-          <>
-            保存到 <code>{status.directory}</code>
-            {percent === undefined ? "" : ` · ${percent}%`}
-          </>
-        )}
-      </span>
-      {status.state === "downloading" ? (
-        <progress
-          value={status.received}
-          max={status.total || 1}
-          aria-label="角色动画下载进度"
-        />
-      ) : null}
-    </aside>
-  );
-}
-
 const MARKDOWN_LABELS = { copyLabel: "复制", copiedLabel: "已复制" };
 
 function ConversationEntry({
@@ -796,7 +740,6 @@ export function OfficePanel({
         ← 返回
       </button>
       <div className="opc-stage">
-        <AssetPrompt onInstalled={loadManifest} />
         <section
           className={`opc-floor opc-time-${officeTime}`}
           style={

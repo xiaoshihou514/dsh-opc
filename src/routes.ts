@@ -1,7 +1,7 @@
 import type { Context } from "@deepseek-ai/cordis";
 import type { WebServer } from "@deepseek-ai/dsh-host-webserver";
 import type { Snapshot } from "./protocol.ts";
-import { activeAssetDir, assetStatus, serveAsset } from "./assets.ts";
+import { activeAssetDir, serveAsset } from "./assets.ts";
 
 export interface SnapshotSource {
   snapshot(): Snapshot;
@@ -115,15 +115,8 @@ export function registerRoutes(
         kind: "prefix",
         path: "/dsh-opc/v1/assets",
         handler: async (req, res) => {
-          const status = await assetStatus();
-          await serveAsset(
-            await activeAssetDir(),
-            req,
-            res,
-            status.localDev
-              ? "no-store"
-              : "public, max-age=31536000, immutable",
-          );
+          // Local-only assets: never cache, so edits to assets/ show up on reload.
+          await serveAsset(await activeAssetDir(), req, res, "no-store");
         },
       }),
     "dsh-opc: asset route",

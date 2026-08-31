@@ -8,14 +8,12 @@ dsh plugin --profile web add .
 pnpm --dir desktop dev -- --dsh-url http://127.0.0.1:3080
 ```
 
-On host activation the plugin automatically fetches `dsh-opc-assets.tar.gz`
-from the latest GitHub release into `~/.dsh/opc/`; the office UI shows the
-download progress. A linked local checkout with WebM clips already present is
-treated as development mode and is never downloaded over. The release asset
-contains the versioned character manifest and WebM clips. Clips are
-intentionally ignored by Git; use `pnpm assets:dummy` for local placeholder
-clips, replace them with licensed art before release, then run
-`pnpm assets:pack`.
+This plugin is self-hosted: every asset (character WebM clips, pet loops, office
+backgrounds, manifest) is read from the plugin's own `assets/` directory, and
+no release archive is downloaded. Clips are intentionally ignored by Git; use
+`pnpm assets:dummy` for placeholder clips and drop your real WebM files into
+`assets/characters/<角色>/` and `assets/pet/` — they take effect on reload
+(assets are served with `no-store`).
 
 Each character state maps to a list of WebM files. The web office and pet
 choose one randomly when a session enters that state. `assets/manifest.json`

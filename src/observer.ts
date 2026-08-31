@@ -15,7 +15,6 @@ import {
   activeAssetDir,
   assetStatus,
   readManifest,
-  updateAssets,
 } from "./assets.ts";
 
 export const name = "dsh-opc-observer";
@@ -80,46 +79,10 @@ export function apply(ctx: Context): void {
       facts.character = characterForModel(facts.model, manifest);
     publish();
   };
-  const downloadAssets = async (): Promise<void> => {
-    const initial = await assetStatus();
-    if (initial.localDev) {
-      assetDownload = { state: "local", received: 0, total: 0 };
-      publish();
-      return;
-    }
-    if (initial.installed) {
-      assetDownload = { state: "complete", received: 0, total: 0 };
-      await refreshAssets();
-      return;
-    }
-    assetDownload = { state: "downloading", received: 0, total: 0 };
-    publish();
-    try {
-      await updateAssets(ctx.logger("dsh-opc"), (received, total) => {
-        assetDownload = { state: "downloading", received, total };
-        publish();
-      });
-      const installed = await assetStatus();
-      assetDownload = {
-        state: installed.installed ? "complete" : "error",
-        received: 0,
-        total: 0,
-        ...(installed.installed
-          ? {}
-          : { error: "Animation archive was not available." }),
-      };
-      if (installed.installed) await refreshAssets();
-      else publish();
-    } catch (error) {
-      assetDownload = {
-        state: "error",
-        received: 0,
-        total: 0,
-        error:
-          error instanceof Error ? error.message : "Animation download failed.",
-      };
-      publish();
-    }
+  // Assets are local-only: read the checkout manifest once at startup.
+  const loadAssets = async (): Promise<void> => {
+    assetDownload = { state: "local", received: 0, total: 0 };
+    await refreshAssets();
   };
   const source = {
     snapshot: (): Snapshot => ({
@@ -145,9 +108,8 @@ export function apply(ctx: Context): void {
   for (const agent of ctx.agents.list())
     sessions.set(agent.id, makeFacts(agent));
   registerRoutes(ctx, ctx.webServer, source);
-  // Linked local checkouts use their existing clips. Installed users receive
-  // the archive automatically and the browser polls the visible progress state.
-  void downloadAssets();
+  // All animation assets come from the plugin's own assets/ directory.
+  void loadAssets();
   ctx.effect(
     () =>
       ctx.on("agent/created", ({ agent }) => {
